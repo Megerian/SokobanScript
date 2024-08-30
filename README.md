@@ -6,7 +6,7 @@ You can try out the app at: https://sokoban-solver-statistics.sourceforge.io/
 
 To run the app on your computer:
 
-1. Download the coding (clone repository) or download zip
+1. Download the coding (clone repository) or download the whole project as zip (https://github.com/Megerian/SokobanScript/archive/refs/heads/master.zip)
 3. Install Node.js (https://nodejs.org/)
 4. In the project folder of the app run: npm install
 5. Then run: npm install -g parcel
