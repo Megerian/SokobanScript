@@ -1,6 +1,7 @@
 This is an implementation of the Sokoban game in Typescript.
 
 It has been implemented to offer a way to play the Sokoban levels which are part of the Sokoban solver tests published at: https://sokoban-solver-statistics.sourceforge.io/statistics/OpenTestSuite/
+
 You can try out the app at: https://sokoban-solver-statistics.sourceforge.io/
 
 To run the app on your computer:
