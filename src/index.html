@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/html" xmlns="http://www.w3.org/1999/html">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>The Sokoban game</title>
+
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+
+<body>
+
+    <!-- List showing the solutions for the level. Is displayed as sidebar. -->
+    <div class="ui sidebar" id="snapshotSidebar">
+
+        <div class="ui selection divided list" id="snapshotList">
+            <h2 class="ui header">Solutions list</h2>
+
+            <div class="item solution">
+                100/200 dummy solution
+            </div>
+            <div class="item snapshot">
+                110/220 dummy snapshot
+            </div>
+        </div>
+
+        <button class="ui center labeled icon button" id="importLURDString" style="margin-top: 16px">
+            <i class="paste icon"></i>
+            Import new
+        </button>
+    </div>
+
+    <div id="pusher">      <!-- the div that is moved right when the sidebar is visible. -->
+        <div class="ui top attached menu">
+            <div class="ui container">
+
+                <!-- Level menu -->
+                <div class="ui simple dropdown item">
+                    <i class="grid layout icon"></i> Level
+                    <i class="dropdown icon"></i>
+
+                    <div class="menu">
+                        <div class="item" id = "importLevelFromClipboard">
+                            <i class="paste icon"></i> Import level from clipboard
+                        </div>
+
+                        <div class="item" id = "exportLevelFromClipboard">
+                            <i class="copy icon"></i> Export level to clipboard
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Moves menu -->
+                <div class="ui simple dropdown item">
+                    <i class="barcode icon"></i> Moves
+                    <i class="dropdown icon"></i>
+
+                    <div class="menu">
+                        <div class="item" id ="copyMovesAsString">
+                            <i class="barcode icon"></i> Copy moves to clipboard
+                        </div>
+
+                        <div class="item" id = "pasteMovesFromClipboard">
+                            <i class="paste icon"></i> Paste moves from clipboard
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Snapshots menu -->
+                <!--                    <div class="ui simple dropdown item">-->
+                <!--                        <i class="align justify icon"></i> Snapshots-->
+                <!--                        <i class="dropdown icon"></i>-->
+
+                <!--                        <div class="menu">-->
+                <!--                            <div class="item" id ="showSnapshotList" style="min-width: 240px">-->
+                <!--                                <i class="eye outline icon"></i> Show/Hide snapshot list-->
+                <!--                                <span class="description">v</span>-->
+                <!--                            </div>-->
+                <!--                        </div>-->
+                <!--                    </div>-->
+
+                <!-- View menu -->
+                <div class="ui simple dropdown item">
+                    <i class="eye icon"></i> View
+                    <i class="dropdown icon"></i>
+                    <div class="menu">
+
+                        <!-- Skin -->
+                        <div class="ui dropdown item">
+                            <i class="images icon"></i> Skin <i class="dropdown icon"></i>
+                            <div class="menu">
+                                <div data-skinName="AntiqueDesk"  class="item">AntiqueDesk by Gerry Wiseman</div>
+                                <div data-skinName="AntiqueDesk3" class="item">AntiqueDesk3 by Gerry Wiseman</div>
+                                <div data-skinName="HeavyMetal3"  class="item">HeavyMetal3 by Gerry Wiseman</div>
+                                <div data-skinName="NightShift3"  class="item">NightShift3 by Gerry Wiseman</div>
+                                <div data-skinName="SokoGems"     class="item">SokoGems    by Gerry Wiseman</div>
+                                <div data-skinName="KSokoban"     class="item">KSokoban by Anders Widell</div>
+                                <div data-skinName="KSokoban2"    class="item active selected">KSokoban by Anders W./George Petrov</div>
+                            </div>
+                        </div>
+
+                        <!-- Graphic Size -->
+                        <div class="ui dropdown item">
+                            <i class="expand arrows alternate icon"></i>
+                            Graphic size
+                            <i class="dropdown icon"></i>
+                            <div class="menu">
+                                <div data-skinGraphicSize="auto"  class="item active selected">automatic</div>
+                                <div data-skinGraphicSize="16"  class="item">16px</div>
+                                <div data-skinGraphicSize="24"  class="item">24px</div>
+                                <div data-skinGraphicSize="32"  class="item">32px</div>
+                                <div data-skinGraphicSize="40"  class="item">40px</div>
+                                <div data-skinGraphicSize="48"  class="item">48px</div>
+                                <div data-skinGraphicSize="56"  class="item">56px</div>
+                                <div data-skinGraphicSize="64"  class="item">64px</div>
+                                <div data-skinGraphicSize="72"  class="item">72px</div>
+                                <div data-skinGraphicSize="80"  class="item">80px</div>
+                                <div data-skinGraphicSize="88"  class="item">88px</div>
+                                <div data-skinGraphicSize="96"  class="item">96px</div>
+                                <div data-skinGraphicSize="104" class="item">104px</div>
+                                <div data-skinGraphicSize="112" class="item">112px</div>
+                                <div data-skinGraphicSize="120" class="item">120px</div>
+                            </div>
+                        </div>
+
+                        <!-- Animation settings -->
+                        <div class="ui dropdown item">
+                            <i class="running icon"></i> Animations <i class="dropdown icon"></i>
+
+                            <div class="menu">
+
+                                <!-- Move animation delay -->
+                                <div class="ui dropdown item">
+                                    <i class="dropdown icon"></i><i class="stopwatch icon"></i>
+                                    Move animation delay
+                                    <div class="ui menu">
+                                        <div data-moveAnimationDelay="0"   class="item">0ms</div>
+                                        <div data-moveAnimationDelay="10"  class="item">10ms</div>
+                                        <div data-moveAnimationDelay="20"  class="item">20ms</div>
+                                        <div data-moveAnimationDelay="30"  class="item">30ms</div>
+                                        <div data-moveAnimationDelay="40"  class="item">40ms</div>
+                                        <div data-moveAnimationDelay="50"  class="item active selected">50ms</div>
+                                        <div data-moveAnimationDelay="60"  class="item">60ms</div>
+                                        <div data-moveAnimationDelay="70"  class="item">70ms</div>
+                                        <div data-moveAnimationDelay="80"  class="item">80ms</div>
+                                        <div data-moveAnimationDelay="90"  class="item">90ms</div>
+                                        <div data-moveAnimationDelay="100" class="item">100ms</div>
+                                        <div data-moveAnimationDelay="110" class="item">110ms</div>
+                                        <div data-moveAnimationDelay="120" class="item">120ms</div>
+                                        <div data-moveAnimationDelay="130" class="item">130ms</div>
+                                        <div data-moveAnimationDelay="140" class="item">140ms</div>
+                                        <div data-moveAnimationDelay="150" class="item">150ms</div>
+                                        <div data-moveAnimationDelay="160" class="item">160ms</div>
+                                        <div data-moveAnimationDelay="170" class="item">170ms</div>
+                                        <div data-moveAnimationDelay="180" class="item">180ms</div>
+                                        <div data-moveAnimationDelay="190" class="item">190ms</div>
+                                        <div data-moveAnimationDelay="200" class="item">200ms</div>
+                                    </div>
+                                </div>
+
+                                <div class="ui divider"></div>
+
+                                <!-- Selected object animation delay -->
+                                <div class="ui dropdown item">
+                                    <i class="dropdown icon"></i><i class="stopwatch icon"></i>
+                                    Selected object animation speed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    <div class="menu">
+                                        <div data-selectedObjectAnimationDelay="10"   class="item">10%</div>
+                                        <div data-selectedObjectAnimationDelay="20"   class="item">20%</div>
+                                        <div data-selectedObjectAnimationDelay="30"   class="item">30%</div>
+                                        <div data-selectedObjectAnimationDelay="40"   class="item">40%</div>
+                                        <div data-selectedObjectAnimationDelay="50"   class="item">50%</div>
+                                        <div data-selectedObjectAnimationDelay="60"   class="item">60%</div>
+                                        <div data-selectedObjectAnimationDelay="70"   class="item">70%</div>
+                                        <div data-selectedObjectAnimationDelay="80"   class="item">80%</div>
+                                        <div data-selectedObjectAnimationDelay="90"   class="item">90%</div>
+                                        <div data-selectedObjectAnimationDelay="100"  class="item active selected">100%</div>
+                                        <div data-selectedObjectAnimationDelay="110"  class="item">110%</div>
+                                        <div data-selectedObjectAnimationDelay="120"  class="item">120%</div>
+                                        <div data-selectedObjectAnimationDelay="130"  class="item">130%</div>
+                                        <div data-selectedObjectAnimationDelay="140"  class="item">140%</div>
+                                        <div data-selectedObjectAnimationDelay="150"  class="item">150%</div>
+                                        <div data-selectedObjectAnimationDelay="160"  class="item">160%</div>
+                                        <div data-selectedObjectAnimationDelay="170"  class="item">170%</div>
+                                        <div data-selectedObjectAnimationDelay="180"  class="item">180%</div>
+                                        <div data-selectedObjectAnimationDelay="190"  class="item">190%</div>
+                                        <div data-selectedObjectAnimationDelay="200"  class="item">200%</div>
+                                    </div>
+                                </div>
+
+                                <!-- Turn selected animations on/off  -->
+                                <div class="item">
+                                    <i class="running icon"></i>
+                                    <div class="ui checkbox">
+                                        <input type="checkbox" id="showAnimations" checked>
+                                        <label for="showAnimations">Show animation</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Background color/image -->
+                        <div class="ui simple dropdown item">
+                            <i class="dropdown icon"></i><i class="palette icon"></i>
+                            Background&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                            <div class="menu">
+
+                                <div class="header">Background color</div>
+
+                                <div class="item">
+                                    <i class="tint icon"></i>
+                                    <label for="backgroundColor">Set new color</label>
+                                    <input type="color" value="#EBEDEF" id="backgroundColor">
+                                </div>
+
+                                <!-- Default color -->
+                                <div class="item" id="setDefaultBackgroundColor">
+                                    <i class="tint icon"></i>
+                                    Set default color
+                                </div>
+
+                                <div class="header">Background image</div>
+
+                                <!-- Background image -->
+                                <div class="item" id="setDropsBackgroundImage">
+                                    <i class="image icon"></i>Drops image
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <!-- Hide walls -->
+                        <div class="item">
+                            <i class="eye slash outline icon"></i>
+                            <div class="ui checkbox">
+                                <input type="checkbox" id="hideWalls">
+                                <label for="hideWalls">Hide walls&nbsp; &nbsp; &nbsp;</label> <!-- &nbsp; for making the whole menu wider -->
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Settings menu -->
+                <div class="ui simple dropdown item">
+                    <i class="settings icon"></i> Settings <i class="dropdown icon"></i>
+
+                    <div class="menu">
+
+                        <!-- Sound -->
+                        <a class="item">
+                            <i class="volume up icon"></i>
+                            <div class="ui checkbox">
+                                <input type="checkbox" id="soundEnabled" checked>
+                                <label for="soundEnabled">Sound</label>
+                            </div>
+                        </a>
+
+                    </div>
+                </div>
+
+
+                <!-- Info menu -->
+                <div class="ui simple dropdown item">
+                    <i class="info icon"></i> Info
+                    <div class="menu">
+
+                        <div class="item" id="howToPlay">
+                            <i class="gamepad icon"></i> How to play
+                        </div>
+
+                        <!-- About -->
+                        <a class="item">
+                            Sokoban for Javascript ver. 0.62
+                        </a>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="appDiv">
+            <div>
+                <div class="ui cards selector">
+                    <div class="card">
+                        <div class="content">
+                            <div class="ui form">
+                                <label for="collectionSelector">Collection:</label>
+                                <select class="ui search dropdown" id="collectionSelector">
+                                    <option value = "Aymeric du Peloux 1 Minicosmos.sok">Aymeric du Peloux 1 Minicosmos</option>
+                                    <option value = "Aymeric du Peloux 2 Microcosmos.sok">Aymeric du Peloux 2 Microcosmos</option>
+                                    <option value = "Aymeric du Peloux 3 Nabokosmos.sok">Aymeric du Peloux 3 Nabokosmos</option>
+                                    <option value = "Aymeric du Peloux 4 Picokosmos.sok">Aymeric du Peloux 4 Picokosmos</option>
+                                    <option value = "Aymeric du Peloux 5 Cosmopoly.sok">Aymeric du Peloux 5 Cosmopoly</option>
+                                    <option value = "Aymeric du Peloux Cosmonotes.sok">Aymeric du Peloux Cosmonotes</option>
+                                    <option value = "Aymeric du Peloux Myriocosmos.sok">Aymeric du Peloux Myriocosmos</option>
+                                    <option value = "Disciple.sok">Disciple</option>
+                                    <option value = "GRIGoRusha 2001.sok">GRIGoRusha 2001</option>
+                                    <option value = "GRIGoRusha 2002.sok">GRIGoRusha 2002</option>
+                                    <option value = "GRIGoRusha Comet.sok">GRIGoRusha Comet</option>
+                                    <option value = "GRIGoRusha Remodel Club.sok">GRIGoRusha Remodel Club</option>
+                                    <option value = "GRIGoRusha Special.sok">GRIGoRusha Special</option>
+                                    <option value = "GRIGoRusha Star.sok">GRIGoRusha Star</option>
+                                    <option value = "GRIGoRusha Sun.sok">GRIGoRusha Sun</option>
+                                </select>
+                                <p></p>
+                                <label for="levelSelector">Level: </label>
+                                <select class="ui search dropdown" id="levelSelector">
+                                    <option value = "Level1">1 - Level 1</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ui cards selector">
+                    <div class="card">
+                        <div class="content">
+                            <div class="ui two column centered grid">
+                            <div class="ui statistics">
+                                <div class="blue statistic" style='min-width:50px'>
+                                    <div class="value">
+                                        <label id="moves">0</label>
+                                    </div>
+                                    <div class="label">Moves</div>
+                                </div>
+                                <div class="blue statistic" style='min-width:50px'>
+                                    <div class="value">
+                                        <span id="pushes">0</span>
+                                    </div>
+                                    <div class="label">Pushes</div>
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="buttonsAndCanvasDIV">
+
+                <div class="toolbarButtons" id="toolbarButtons">
+                    <button class="ui icon button" title="undo all" id="undoAllButton"> <i class="angle double left icon">  </i> </button>
+                    <button class="ui icon button" title="undo"     id="undoButton">    <i class="angle left icon">         </i> </button>
+                    <button class="ui icon button" title="redo"     id="redoButton">    <i class="angle right icon">        </i> </button>
+                    <button class="ui icon button" title="redo all" id="redoAllButton"> <i class="angle double right icon"> </i> </button>
+                </div>
+
+                <div id="canvasDIV">
+                    <canvas id="canvas"></canvas>
+
+                    <div id="levelSolvedDiv" style="visibility: hidden">
+                        <div class="ui dimmer active dot"  style="margin-left: 40%;margin-top: 20%;">
+                            <h2 class="ui inverted icon header">
+                                <i class="thumbs up outline icon"></i>
+                                Level solved!
+                            </h2>
+                        </div>
+                    </div>
+                </div>
+
+                <label id="statusTextLabel" class="ui hidden huge blue message" style='width:100%'>Status:  <span id="statusText"></span></label>
+            </div>
+        </div>
+
+    </div>  <!-- pusher div which is slides when solution list is displayed -->
+
+    <!-- Entries for Fomantic -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.css">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.js"></script>
+
+    <!-- Entry for LocalForage -->
+    <script src="https://cdn.jsdelivr.net/npm/localforage/dist/localforage.min.js"></script>
+
+    <!-- Modal dialog showing the board to the user in case an invalid board has been found. -->
+    <div class="ui modal" id="showInvalidBoard">
+        <div class="header">
+            Invalid board found
+        </div>
+        <div class="ui segment">
+            Found valid board strings:
+            <div class="ui segment">
+                <pre style="font-family: 'Courier',monospace" id="boardAsString"></pre>
+            </div>
+            <pre style="color: red" id="boardErrorMessage"></pre>
+        </div>
+
+        <div class="actions">
+            <div class="ui primary positive button">OK</div>
+        </div>
+    </div>
+
+    <!-- Modal dialog showing how to use this app. -->
+    <div class="ui modal" id="showHowToPlay">
+        <div class="header">
+            <h1>How to play</h1>
+        </div>
+
+        <div style="padding: 40px">
+
+            <div class="ui tiny header" >
+                <h3>Sokoban</h3>
+                The puzzle game where you push boxes or crates around in a warehouse, trying to get them to storage locations.
+            </div>
+
+            <div class="ui segment" >
+                <h3>Using the keyboard:</h3>
+                You can move the player using the arrow keys for moving the player up, down, left and right.<br>
+                Alternatively you can use the keys: w, a, s, d  or  i, j, k, l
+            </div>
+
+            <div class="ui segment" >
+                <h3>Using the mouse:</h3>
+                Click at a free position to let the player move to that position. <br><br>
+                Click a box to select it and then click at the target position for that box to let the <br>
+                player push that box to that target position.
+            </div>
+
+        </div>
+
+        <div class="actions">
+            <div class="ui primary positive button">OK</div>
+        </div>
+    </div>
+
+
+    <!-- Modal dialog showing text area for pasting text when browser doesn't support direct clipboard access. -->
+    <div class="ui modal" id="pasteFromClipboardDialog">
+        <div class="header">
+            <h1>Please paste clipboard content</h1>
+        </div>
+
+        <div class="ui segment" >
+            <label for="pastedClipboardContent">Clipboard content:</label>
+            <br>
+            <textarea id="pastedClipboardContent" style="height: 200px" placeholder="Paste content here"> </textarea>
+        </div>
+
+        <div class="actions">
+            <div class="ui deny button">Cancel</div>
+
+            <div class="ui primary positive button">
+                Import content
+            </div>
+
+        </div>
+    </div>
+
+    <audio id="moveSound"        preload>  <source src="/resources/sound/move.wav" />        </audio>
+    <audio id="pushSound"        preload>  <source src="/resources/sound/push.wav" />        </audio>
+    <audio id="pushToGoalSound"  preload>  <source src="/resources/sound/pushToGoal.wav" />  </audio>
+    <audio id="moveBlockedSound" preload>  <source src="/resources/sound/moveBlocked.wav" /> </audio>
+    <audio id="solvedSound"      preload>  <source src="/resources/sound/solved.wav" />      </audio>
+
+    <script type="module" src="sokoban.ts"></script>
+    </body>
+</html>

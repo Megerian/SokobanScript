@@ -1,0 +1,12 @@
+# IDE settings
+.idea/
+*.iml
+
+# Node modules
+node_modules/
+
+# Parcel cache
+.parcel-cache/
+
+# TypeScript build info
+tsconfig.tsbuildinfo

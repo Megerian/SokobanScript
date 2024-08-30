@@ -1,0 +1,64 @@
+* {
+    user-select: none;  /* avoid the user can select/highlight anything (like texts) */
+}
+
+body {
+    background-color: #EBEDEF !important;
+    overflow: hidden;
+}
+
+#appDiv {       /* Div containing the collection selector and moves/pushes left and the level gui right */
+    display: flex;
+}
+
+#buttonsAndCanvasDIV {
+    padding: 32px;
+    /*background-color: green;*/
+}
+
+#canvasDIV {
+    /*background-color: red;*/
+}
+
+.center {
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.toolbarButtons {
+    text-align: center;
+    padding-bottom: 16px;
+}
+
+.dot {
+    border-radius: 100%;
+    max-width: 200px;
+    max-height: 200px;
+}
+
+#snapshotList {
+    padding: 16px;
+    margin-top: 24px;
+}
+
+.solution {
+    background-color: beige!important;
+    font-weight: bold
+}
+
+.snapshot {
+    background-color: blanchedalmond!important;
+    font-weight: bold;
+}
+
+.selector {
+    padding-top: 20px;
+    padding-left: 20px;
+}
+
+label {
+    display: inline-block;
+}
