@@ -17,7 +17,7 @@ You can try out the app at: https://sokoban-solver-statistics.sourceforge.io/
     - Or [download the project as a ZIP file](https://github.com/Megerian/SokobanScript/archive/refs/heads/master.zip) and extract it.
 
 2. **Install Node.js**  
-   If you don’t have Node.js installed, download it from [here](https://nodejs.org/). Make sure to install the latest stable version.
+   If you don’t have Node.js installed, download it from [here](https://nodejs.org/). Make sure to install the latest **stable** version.
 
 
 #### Step 2: Install Required Dependencies
