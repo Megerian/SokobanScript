@@ -42,6 +42,10 @@
                     <i class="dropdown icon"></i>
 
                     <div class="menu">
+                        <div class="item" id="importLevelFromFile">
+                            <i class="folder open icon"></i> Import level from file
+                        </div>
+
                         <div class="item" id = "importLevelFromClipboard">
                             <i class="paste icon"></i> Import level from clipboard
                         </div>
@@ -455,6 +459,14 @@
     <audio id="pushToGoalSound"  preload>  <source src="/resources/sound/pushToGoal.wav" />  </audio>
     <audio id="moveBlockedSound" preload>  <source src="/resources/sound/moveBlocked.wav" /> </audio>
     <audio id="solvedSound"      preload>  <source src="/resources/sound/solved.wav" />      </audio>
+
+    <!-- Hidden file input used to load a level from disk -->
+    <input
+            type="file"
+            id="levelFileInput"
+            accept=".txt,.sok,.xsb"
+            style="display: none"
+    />
 
     <script type="module" src="sokoban.ts"></script>
     </body>

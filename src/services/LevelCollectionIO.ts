@@ -22,8 +22,11 @@ export class LevelCollectionIO {
         })
     }
 
-
-    private static parseLevelCollectionLevels(collectionAsString: string): Array<Level> {
+    /**
+     * Parses a text in classic Sokoban collection format (.sok) into a list of levels.
+     * Each level is detected by its board rows (#-lines) followed by a "Title:" line.
+     */
+    static parseLevelCollectionLevels(collectionAsString: string): Array<Level> {
 
         const collectionLines = collectionAsString.replace(/\r/g, "")
                                                   .split(/\n/)
@@ -40,7 +43,7 @@ export class LevelCollectionIO {
             if(row.includes('#')) boardAsString += row + "\n"
             if(row.includes('ID:')) letslogicID = parseInt(row.slice(4))
             if(row.includes('Title:')) {
-                title = row.substring(6)
+                title = row.substring(6).trim()
 
                 const board = Board.createFromString(boardAsString)
                 if (typeof board !== 'string') {

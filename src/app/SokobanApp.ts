@@ -573,40 +573,49 @@ export class SokobanApp {
     }
 
     /** Imports a level string from the clipboard to be played as new level. */
-    private async importLevelFromClipboard() {
+    private async importLevelFromClipboard(): Promise<void> {
 
-        const string = await Utilities.getStringFromClipboard()
-        if(string == null) {
-            return  // user has cancelled pasting the clipboard content
+        const string = await Utilities.getStringFromClipboard();
+        if (string == null) {
+            return;  // user has cancelled pasting the clipboard content
         }
 
-        const trimmedString = string.trim()
+        // Reuse the same logic for clipboard and file imports.
+        this.importLevelFromString(string);
+    }
 
-        const boardRows = string.split("\n")
-        const validBoardRows = boardRows.filter(LevelFormat.isValidBoardRow)
-        const validBoardRowsAsString = validBoardRows.join("\n")
+    /**
+     * Imports a level from a raw string (for example from the clipboard or a file)
+     * and sets it as the current playable level.
+     */
+    public importLevelFromString(rawLevelString: string): void {
 
-        const board = Board.createFromString(validBoardRowsAsString)    // returns a board or an error string
-        if (typeof board === 'string') {
-            $("#boardAsString").html(validBoardRows.join("</br>"))
+        const boardRows = rawLevelString.trim().split("\n");
+        const validBoardRows = boardRows.filter(LevelFormat.isValidBoardRow);
+        const validBoardRowsAsString = validBoardRows.join("\n");
+
+        const board = Board.createFromString(validBoardRowsAsString);    // returns a board or an error string
+        if (typeof board === "string") {
+            // Show the "invalid board" modal with the detected rows and error message
+            $("#boardAsString").html(validBoardRows.join("</br>"));
             $("#boardErrorMessage").html(board);
 
             ($('#showInvalidBoard') as any).modal({
                 onShow: () => {
-                    GUI.isModalDialogShown = true
-                },    // tell the GUI listeners that we
+                    GUI.isModalDialogShown = true;
+                },
                 onHidden: () => {
-                    GUI.isModalDialogShown = false
-                }  // handle input events
-            }).modal('show')
+                    GUI.isModalDialogShown = false;
+                }
+            }).modal("show");
 
-            return
+            return;
         }
 
-        const level = new Level(board)
-        level.title = "Clipboard import"
+        const level = new Level(board);
+        level.title = "Imported level";
 
-        this.setLevelForPlaying(level)
+        this.setLevelForPlaying(level);
     }
 
     /**

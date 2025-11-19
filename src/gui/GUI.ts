@@ -11,6 +11,7 @@ import {Level} from "../Sokoban/domainObjects/Level"
 import {DIRECTION, Directions, UP} from "../Sokoban/Directions"
 import {NightShift3Skin} from "../skins/commonSkinFormat/NighShift3Skin"
 import {SkinLoader} from "../skins/SkinLoader";
+import {Messages} from "./Messages";
 
 export const enum Action {  // actions (with strings for easier debugging -))
     levelSelected = "levelSelected",
@@ -78,7 +79,9 @@ export class GUI {
     pasteMovesFromClipboard  = document.getElementById("pasteMovesFromClipboard")  as HTMLInputElement
     importLevelFromClipboard = document.getElementById("importLevelFromClipboard") as HTMLInputElement
     exportLevelFromClipboard = document.getElementById("exportLevelFromClipboard") as HTMLInputElement
-    howToPlayMenuItem        = document.getElementById("howToPlay")                as HTMLInputElement
+    importLevelFromFile        = document.getElementById("importLevelFromFile")      as HTMLDivElement;
+    levelFileInput            = document.getElementById("levelFileInput")           as HTMLInputElement;
+    howToPlayMenuItem         = document.getElementById("howToPlay")                as HTMLInputElement
 
     /** Status bar */
     statusTextLabel = document.getElementById("statusTextLabel") as HTMLLabelElement
@@ -88,6 +91,9 @@ export class GUI {
     collectionSelector = document.getElementById("collectionSelector") as HTMLSelectElement
     levelSelector = document.getElementById("levelSelector") as HTMLSelectElement
     private levelCollection = new Collection("", "", [])    // Currently played level collection
+
+    // Imported collections keyed by their display name (usually the file name without extension).
+    private importedCollections = new Map<string, Collection>();
 
     // Solutions/Snapshots list
     snapshotList = document.getElementById("snapshotList") as HTMLDivElement
@@ -617,6 +623,71 @@ export class GUI {
             })
         })
 
+        // Open the file picker when "Import level from file" is clicked.
+        if (this.importLevelFromFile && this.levelFileInput) {
+            this.importLevelFromFile.addEventListener("click", () => {
+                // Trigger the hidden file input so the user can choose a file from disk.
+                this.levelFileInput.click();
+            });
+
+            // When the user has selected a file, read its content and import the levels as a collection.
+            this.levelFileInput.addEventListener("change", async () => {
+                const file = this.levelFileInput.files && this.levelFileInput.files[0];
+                if (!file) {
+                    return;
+                }
+
+                try {
+                    // Read the file as text (works in modern browsers).
+                    const text = await file.text();
+
+                    // Parse the content into levels using the existing collection parser.
+                    const levels = LevelCollectionIO.parseLevelCollectionLevels(text);
+
+                    if (!levels || levels.length === 0) {
+                        // You can replace alert(...) with your Messages helper if you want.
+                        alert("No Sokoban levels were found in the selected file.");
+                        return;
+                    }
+
+                    // Use the base file name (without extension) as the collection name.
+                    const fileName = file.name || "Imported collection";
+                    const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove last extension
+
+                    const importedCollection = new Collection(baseName, "", levels);
+
+                    // Store the imported collection so it can be re-selected from the dropdown.
+                    this.importedCollections.set(baseName, importedCollection);
+
+                    // Ensure the collection selector has an option for this imported collection.
+                    let existingOption = Array.from(this.collectionSelector.options)
+                        .find(option => option.value === baseName);
+
+                    if (!existingOption) {
+                        const option = document.createElement("option");
+                        option.value = baseName;
+                        option.text = baseName;   // what the user sees in the dropdown
+                        this.collectionSelector.add(option);
+                        existingOption = option;
+                    }
+
+                    // Select this imported collection in the dropdown.
+                    this.collectionSelector.value = baseName;
+
+                    // Show the imported collection in the level selector and load its first level.
+                    this.setCollectionForPlaying(importedCollection);
+                    this.levelSelector.selectedIndex = 0;
+                    this.newLevelSelected();
+                } catch (error) {
+                    console.error("Failed to read or parse level file", error);
+                    alert("Could not read the selected file or parse it as a Sokoban collection.");
+                } finally {
+                    // Reset the input so selecting the same file again will trigger the change event.
+                    this.levelFileInput.value = "";
+                }
+            });
+        }
+
         window.addEventListener("resize", (e: Event) => {
             this.adjustCanvasSize()
             this.adjustNewGraphicSize()
@@ -637,6 +708,7 @@ export class GUI {
         this.pasteMovesFromClipboard  .addEventListener("click", (e: Event) => this.doAction(Action.pasteMovesFromClipboard))
         this.importLevelFromClipboard .addEventListener("click", (e: Event) => this.doAction(Action.importLevelFromClipboard))
         this.exportLevelFromClipboard .addEventListener("click", (e: Event) => this.doAction(Action.copyLevelToClipboard))
+
         this.howToPlayMenuItem        .addEventListener("click", (e: Event) => this.doAction(Action.howToPlay))
         this.importLURDStringButton   .addEventListener("click", (e: Event) => this.doAction(Action.importLURDString))
         // this.showSnapshotList.addEventListener("click", (e: Event) => this.doAction(Action.toggleSnapshotList))
@@ -725,20 +797,31 @@ export class GUI {
      */
     private newCollectionSelected() {
 
-        const levelCollectionName = this.collectionSelector.value
+        const levelCollectionName = this.collectionSelector.value;
 
-        if(levelCollectionName.includes("#")) {              // for the user level the board data are stored as collection name
-            this.setUserLevelForPlaying(levelCollectionName)
-            return
+        // First, check if this is an imported collection loaded from a local file.
+        const importedCollection = this.importedCollections.get(levelCollectionName);
+        if (importedCollection) {
+            this.setCollectionForPlaying(importedCollection);
+            this.newLevelSelected();   // Set the first level for playing
+            return;
         }
 
-        Settings.lastPlayedCollectionName = levelCollectionName
+        // When the user has passed a level via URL parameter an extra item is in the selector.
+        // However, the user shouldn't be able to select this item once another item has been
+        // selected since the level can be loaded again then.
+        if (levelCollectionName.includes("#")) {              // for the user level the board data are stored as collection name
+            this.setUserLevelForPlaying(levelCollectionName);
+            return;
+        }
 
-        const collectionPromise = LevelCollectionIO.loadLevelCollection(`resources/levels/${levelCollectionName}`)
-        collectionPromise.then( levelCollection => {
-            this.setCollectionForPlaying(levelCollection)
-            this.newLevelSelected()   // Set the first level for playing
-        })
+        Settings.lastPlayedCollectionName = levelCollectionName;
+
+        const collectionPromise = LevelCollectionIO.loadLevelCollection(`resources/levels/${levelCollectionName}`);
+        collectionPromise.then(levelCollection => {
+            this.setCollectionForPlaying(levelCollection);
+            this.newLevelSelected();   // Set the first level for playing
+        });
     }
 
     /**
