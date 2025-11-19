@@ -44,6 +44,71 @@ body {
     margin-top: 24px;
 }
 
+/* Snapshot / solution styling inside the sidebar list */
+#snapshotList .item.solution {
+    background-color: #EEF2FA !important;   /* very soft blue-grey */
+    border-left: 4px solid #6B8BC3;        /* muted blue accent */
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+#snapshotList .item.snapshot {
+    background-color: #F6F8FC !important;   /* even lighter blue-grey */
+    border-left: 4px solid #8FA5D6;        /* slightly lighter accent */
+    font-weight: bold;
+    border-radius: 4px;
+}
+
+/* Optional: very subtle hover effect */
+#snapshotList .item.solution:hover,
+#snapshotList .item.snapshot:hover {
+    background-color: #E5E9F5 !important;
+    cursor: pointer;
+}
+
+/* small margin between items */
+#snapshotList .item {
+    margin-bottom: 4px;
+    border-radius: 4px;
+}
+
+
+/* Delete icon for snapshots/solutions in the list */
+.snapshot-delete-icon {
+    float: right;
+    opacity: 0.4;
+    cursor: pointer;
+    display: none !important;      /* hidden by default, only visible in delete mode */
+    color: #db2828;                /* red delete icon */
+}
+
+/* When delete mode is active on the sidebar, show the delete icon. */
+#snapshotSidebar.delete-mode .snapshot-delete-icon {
+    display: inline-block !important;
+}
+
+/* Slightly highlight the delete icon on hover */
+#snapshotList .item:hover .snapshot-delete-icon {
+    opacity: 0.9;
+}
+
+
+/* Let Fomantic header/description look nice with the backgrounds */
+#snapshotList .item .header {
+    font-size: 1em;
+}
+
+#snapshotList .item .description {
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+#snapshotSidebar .ui.button {
+    display: block;                       /* full row */
+    margin: 8px 0px;                     /* 8px above/bottom */
+    width: calc(100% - 60px);
+}
+
 .solution {
     background-color: beige!important;
     font-weight: bold

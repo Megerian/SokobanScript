@@ -16,19 +16,23 @@
     <div class="ui sidebar" id="snapshotSidebar">
 
         <div class="ui selection divided list" id="snapshotList">
-            <h2 class="ui header">Solutions list</h2>
-
-            <div class="item solution">
-                100/200 dummy solution
-            </div>
-            <div class="item snapshot">
-                110/220 dummy snapshot
-            </div>
+            <h3 class="ui header">Saved states</h3>
+            <!-- Items will be added dynamically via JavaScript -->
         </div>
 
-        <button class="ui center labeled icon button" id="importLURDString" style="margin-top: 16px">
+        <button class="ui center labeled icon button" id="saveSnapshotButton">
+            <i class="save icon"></i>
+            Save snapshot
+        </button>
+
+        <button class="ui center labeled icon button" id="importLURDString" title="Import a LURD string as snapshot or solution">
             <i class="paste icon"></i>
-            Import new
+            Import snapshot
+        </button>
+
+        <button class="ui center labeled icon button" id="deleteSnapshotButton" title="Toggle delete mode for snapshots and solutions">
+            <i class="trash icon"></i>
+            Delete snapshots
         </button>
     </div>
 
@@ -235,6 +239,13 @@
                             </div>
                         </div>
 
+                        <div class="item">
+                            <i class="list ul icon"></i>
+                            <div class="ui checkbox">
+                                <input type="checkbox" id="showSnapshotListCheckbox">
+                                <label for="showSnapshotListCheckbox">Show saved states&nbsp;&nbsp;&nbsp;</label>
+                            </div>
+                        </div>
 
                         <!-- Hide walls -->
                         <div class="item">
@@ -278,7 +289,7 @@
 
                         <!-- About -->
                         <a class="item">
-                            Sokoban for Javascript ver. 0.62
+                            Sokoban for Javascript ver. 0.70
                         </a>
 
                     </div>

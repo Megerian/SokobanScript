@@ -14,6 +14,7 @@ import {Level} from "../Sokoban/domainObjects/Level"
 import {Snapshot} from "../Sokoban/domainObjects/Snapshot"
 import {DataStorage} from "../storage/DataStorage"
 import {Messages} from "../gui/Messages"
+import {Metrics} from "../Sokoban/domainObjects/Metrics"
 
 export const NONE = -1
 const enum MovementType { MOVE= "Move", PUSH = "Push", PUSH_TO_GOAL = "PushToGoal", NONE = "None" }
@@ -35,6 +36,8 @@ export class SokobanApp {
     board = Board.getDummyBoard()
     private level = new Level(this.board)
 
+    private currentCollectionName = ""
+
     private playerPathFinding = new PlayerPathFinding(this.board)
     private boxPathFinding = new BoxPathFinding(this.board)
     private lurdVerifier = new LURDVerifier(this.board)
@@ -54,6 +57,9 @@ export class SokobanApp {
 
     setLevelForPlaying(level: Level) {
 
+        // Store the reference to the level so that snapshots/solutions are attached to the correct level.
+        this.level = level
+
         this.board = level.board.clone()    // avoid changing the board of the level
 
         this.moves  = 0
@@ -71,6 +77,24 @@ export class SokobanApp {
 
         this.gui.newLevelLoaded()       // inform the GUI about a new loaded level
         this.updateMovesPushesInGUI()
+
+
+        // Clear and (later) repopulate the snapshot/solution list.
+        this.gui.clearSnapshotList()
+
+        // Load stored snapshots/solutions for this board (identical boards share the same data).
+        DataStorage.loadSnapshotsAndSolutions(this.level.board)
+            .then(stored => {
+                stored.forEach(snap => {
+                    if (snap instanceof Solution) {
+                        this.level.addSolution(snap)
+                    } else {
+                        this.level.addSnapshot(snap)
+                    }
+                    this.gui.updateSnapshotList(snap)
+                })
+            })
+            .catch(error => console.error("Failed to load snapshots/solutions", error))
     }
 
     async cellClicked(position: number) {
@@ -279,18 +303,20 @@ export class SokobanApp {
             this.gui.undoButton.removeAttribute("disabled")
         }
 
-        if(this.board.isSolved() && this.moves > 0) {
+        if (this.board.isSolved() && this.moves > 0) {
+            // Only treat this as a new solution when the player solved the level manually.
             if (!this.isRedoInProgress) {
                 this.gui.showLevelSolvedAnimation()
                 Sound.playLevelSolvedSound()
+
+                const verifyResult = this.lurdVerifier.verifyLURD(this.moveHistory.lurd)
+                if (verifyResult instanceof Solution) {
+                    const hasBeenAdded = this.addSolutionToLevel(verifyResult)
+                    if (hasBeenAdded) {
+                        this.gui.updateSnapshotList(verifyResult)
+                    }
+                }
             }
-            // const verifyResult= this.lurdVerifier.verifyLURD(this.moveHistory.lurd)
-            // if(verifyResult instanceof Solution) {
-            //     const hasBeenAdded = this.addSolutionToLevel(verifyResult)
-            //     if (hasBeenAdded) {         // => it's not a duplicate
-            //         this.gui.updateSnapshotList(verifyResult)
-            //     }
-            // }
         }
     }
 
@@ -506,6 +532,8 @@ export class SokobanApp {
             case Action.copyLevelToClipboard: this.copyLevelToClipboard(); break
 
             case Action.importLURDString: this.importLURDString(); break
+
+            case Action.saveSnapshot: this.saveCurrentSnapshot(); break
         }
     }
 
@@ -655,6 +683,37 @@ export class SokobanApp {
         }
     }
 
+    /** Saves the current move history as a snapshot or solution and adds it to the level and GUI. */
+    private saveCurrentSnapshot(): void {
+
+        const lurd = this.moveHistory.lurd
+        if (!lurd || lurd.length === 0) {
+            Messages.showWarningMessage("Nothing to save", "There are no moves yet, so no snapshot was saved.")
+            return
+        }
+
+        // Let the LURDVerifier compute normalized LURD and metrics.
+        const verified = this.lurdVerifier.verifyLURD(lurd)
+        if (verified == null) {
+            Messages.showErrorMessage("Invalid moves", "The current move sequence is not valid for this level.")
+            return
+        }
+
+        if (verified instanceof Solution) {
+            const hasBeenAdded = this.addSolutionToLevel(verified)
+            if (hasBeenAdded) {
+                this.gui.updateSnapshotList(verified)
+            }
+        } else {
+            verified.name = "Snapshot " + (this.level.snapshots.size + 1)
+
+            const hasBeenAdded = this.addSnapshotToLevel(verified)
+            if (hasBeenAdded) {
+                this.gui.updateSnapshotList(verified)
+            }
+        }
+    }
+
     /**
      * Adds the passed solution to the level and displays a message to the user.
      * Returns true if adding the solution has been successful, false if the
@@ -666,10 +725,14 @@ export class SokobanApp {
 
         const hasBeenAdded = this.level.addSolution(solution)
 
-        if(hasBeenAdded) {
-            Messages.showSuccessMessage('Solution added', 'The solution has been added to the level')
+        if (hasBeenAdded) {
+            Messages.showSuccessMessage("Solution added", "The solution has been added to the level")
+
+            // Store solution per board, so identical boards share solutions.
+            DataStorage.storeSolution(this.level.board, solution)
+                .catch(error => console.error("Failed to store solution", error))
         } else {
-            Messages.showWarningMessage('Duplicate solution', 'The level already contains the solution.')
+            Messages.showWarningMessage("Duplicate solution", "The level already contains the solution.")
         }
 
         return hasBeenAdded
@@ -686,26 +749,93 @@ export class SokobanApp {
 
         const hasBeenAdded = this.level.addSnapshot(snapshot)
 
-        if(hasBeenAdded) {
-            Messages.showSuccessMessage('Snapshot added', 'The snapshot has been added to the level')
+        if (hasBeenAdded) {
+            Messages.showSuccessMessage("Snapshot added", "The snapshot has been added to the level")
+
+            // Store snapshot per board, so identical boards share snapshots.
+            DataStorage.storeSnapshot(this.level.board, snapshot)
+                .catch(error => console.error("Failed to store snapshot", error))
+
             return true
         } else {
-            Messages.showWarningMessage('Duplicate snapshot', 'The level already contains the snapshot.')
+            Messages.showWarningMessage("Duplicate snapshot", "The level already contains the snapshot.")
             return false
         }
+    }
+
+    /** Sets the name of the currently selected level collection. */
+    setCurrentCollectionName(collectionName: string): void {
+        this.currentCollectionName = collectionName
+    }
+
+    /** Returns the name of the currently selected level collection. */
+    getCurrentCollectionName(): string {
+        return this.currentCollectionName
     }
 
     private showMessageInvalidLURDString(lurdString: string) {
         Messages.showErrorMessage('Invalid lurd string', "The imported lurd string isn't valid for the level: " + lurdString)
     }
 
-    /** Moves the player according to the lurd of the passed snapshot. */
+    /** Moves the player according to the lurd of the passed snapshot or solution. */
     setSnapshot(snapshot: Snapshot) {
+        // Mark this as a replay so no new solutions are recorded while applying the snapshot.
+        this.isRedoInProgress = true
+
         this.undoAllMoves()
         const successfulMoves = this.movePlayerAccordingToLURDStringWithoutAnimation(snapshot.lurd)
 
-        if(successfulMoves > 0) {        // should always be greater than 0!
-            Messages.showSuccessMessage('Snapshot set on board', 'The snapshot has been set on the board.')
+        this.isRedoInProgress = false
+
+        if (successfulMoves > 0) {
+            if (snapshot instanceof Solution) {
+                Messages.showSuccessMessage(
+                    "Solution set on board",
+                    "The solution has been set on the board."
+                )
+            } else {
+                Messages.showSuccessMessage(
+                    "Snapshot set on board",
+                    "The snapshot has been set on the board."
+                )
+            }
+        }
+    }
+
+    /** Deletes the given snapshot or solution from the level, storage and GUI. */
+    deleteSnapshot(snapshot: Snapshot): void {
+        let removed = false
+
+        if (snapshot instanceof Solution) {
+            removed = this.level.solutions.delete(snapshot.lurd)
+        } else {
+            removed = this.level.snapshots.delete(snapshot.lurd)
+        }
+
+        if (removed) {
+            // Remove from persistent storage.
+            DataStorage.deleteSnapshot(this.level.board, snapshot)
+                .catch(error => console.error("Failed to delete snapshot/solution", error))
+
+            // Remove from GUI list.
+            this.gui.removeSnapshotFromList(snapshot)
+
+            if (snapshot instanceof Solution) {
+                Messages.showSuccessMessage(
+                    "Solution deleted",
+                    "The solution has been removed from this level."
+                )
+            } else {
+                Messages.showSuccessMessage(
+                    "Snapshot deleted",
+                    "The snapshot has been removed from this level."
+                )
+            }
+        } else {
+            Messages.showWarningMessage(
+                "Not found",
+                "The snapshot/solution was not found for the current level."
+            )
         }
     }
 }

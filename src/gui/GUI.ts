@@ -11,7 +11,8 @@ import {Level} from "../Sokoban/domainObjects/Level"
 import {DIRECTION, Directions, UP} from "../Sokoban/Directions"
 import {NightShift3Skin} from "../skins/commonSkinFormat/NighShift3Skin"
 import {SkinLoader} from "../skins/SkinLoader";
-import {Messages} from "./Messages";
+import {Solution} from "../Sokoban/domainObjects/Solution"
+
 
 export const enum Action {  // actions (with strings for easier debugging -))
     levelSelected = "levelSelected",
@@ -37,6 +38,9 @@ export const enum Action {  // actions (with strings for easier debugging -))
     importLevelFromClipboard = "importLevelFromClipboard",
     copyLevelToClipboard = "copyLevelToClipboard",
     importLURDString = "importLURDString",
+    saveSnapshot = "saveSnapshot",
+    toggleDeleteSnapshotMode = "toggleDeleteSnapshotMode",
+
     cellClicked = "cellClicked",
 }
 
@@ -98,7 +102,12 @@ export class GUI {
     // Solutions/Snapshots list
     snapshotList = document.getElementById("snapshotList") as HTMLDivElement
     importLURDStringButton = document.getElementById("importLURDString") as HTMLButtonElement
-    // showSnapshotList = document.getElementById("showSnapshotList") as HTMLDivElement
+    saveSnapshotButton = document.getElementById("saveSnapshotButton") as HTMLButtonElement
+    deleteSnapshotButton = document.getElementById("deleteSnapshotButton") as HTMLButtonElement
+    snapshotSidebar = document.getElementById("snapshotSidebar") as HTMLDivElement
+    showSnapshotListCheckbox = document.getElementById("showSnapshotListCheckbox") as HTMLInputElement
+
+    private isDeleteSnapshotMode = false
 
     toolbarButtons = document.getElementById("toolbarButtons") as HTMLDivElement  // The main div containing all elements
 
@@ -182,6 +191,10 @@ export class GUI {
         } else {
             GUI.setNewBackgroundColor(Settings.backgroundColor)
         }
+
+        // Snapshot list visibility
+        this.showSnapshotListCheckbox.checked = Settings.showSnapshotListFlag
+        GUI.setSnapshotListVisible(Settings.showSnapshotListFlag)
     }
 
     async setSkin(skinName: SKIN_NAME): Promise<void> {
@@ -626,67 +639,66 @@ export class GUI {
         // Open the file picker when "Import level from file" is clicked.
         if (this.importLevelFromFile && this.levelFileInput) {
             this.importLevelFromFile.addEventListener("click", () => {
-                // Trigger the hidden file input so the user can choose a file from disk.
-                this.levelFileInput.click();
-            });
+                this.levelFileInput.click()
+            })
 
-            // When the user has selected a file, read its content and import the levels as a collection.
             this.levelFileInput.addEventListener("change", async () => {
-                const file = this.levelFileInput.files && this.levelFileInput.files[0];
+                const file = this.levelFileInput.files && this.levelFileInput.files[0]
                 if (!file) {
-                    return;
+                    return
                 }
 
                 try {
-                    // Read the file as text (works in modern browsers).
-                    const text = await file.text();
+                    const text = await file.text()
 
-                    // Parse the content into levels using the existing collection parser.
-                    const levels = LevelCollectionIO.parseLevelCollectionLevels(text);
-
+                    const levels = LevelCollectionIO.parseLevelCollectionLevels(text)
                     if (!levels || levels.length === 0) {
-                        // You can replace alert(...) with your Messages helper if you want.
-                        alert("No Sokoban levels were found in the selected file.");
-                        return;
+                        alert("No Sokoban levels were found in the selected file.")
+                        return
                     }
 
-                    // Use the base file name (without extension) as the collection name.
-                    const fileName = file.name || "Imported collection";
-                    const baseName = fileName.replace(/\.[^/.]+$/, ""); // remove last extension
+                    const fileName = file.name || "Imported collection"
+                    const baseName = fileName.replace(/\.[^/.]+$/, "") // remove extension
 
-                    const importedCollection = new Collection(baseName, "", levels);
+                    const importedCollection = new Collection(baseName, "", levels)
 
-                    // Store the imported collection so it can be re-selected from the dropdown.
-                    this.importedCollections.set(baseName, importedCollection);
+                    // Store for later selection.
+                    this.importedCollections.set(baseName, importedCollection)
 
-                    // Ensure the collection selector has an option for this imported collection.
+                    // Ensure an option exists in the collection selector.
                     let existingOption = Array.from(this.collectionSelector.options)
-                        .find(option => option.value === baseName);
+                        .find(option => option.value === baseName)
 
                     if (!existingOption) {
-                        const option = document.createElement("option");
-                        option.value = baseName;
-                        option.text = baseName;   // what the user sees in the dropdown
-                        this.collectionSelector.add(option);
-                        existingOption = option;
+                        const option = document.createElement("option")
+                        option.value = baseName
+                        option.text = baseName
+                        this.collectionSelector.add(option)
+                        existingOption = option
                     }
 
-                    // Select this imported collection in the dropdown.
-                    this.collectionSelector.value = baseName;
+                    // Select this imported collection.
+                    this.collectionSelector.value = baseName
 
-                    // Show the imported collection in the level selector and load its first level.
-                    this.setCollectionForPlaying(importedCollection);
-                    this.levelSelector.selectedIndex = 0;
-                    this.newLevelSelected();
+                    // Tell the app about the current collection name.
+                    this.app.setCurrentCollectionName(baseName)
+
+                    // Show levels and load the first one.
+                    this.setCollectionForPlaying(importedCollection)
+                    this.levelSelector.selectedIndex = 0
+                    this.newLevelSelected()
                 } catch (error) {
-                    console.error("Failed to read or parse level file", error);
-                    alert("Could not read the selected file or parse it as a Sokoban collection.");
+                    console.error("Failed to read or parse level file", error)
+                    alert("Could not read the selected file or parse it as a Sokoban collection.")
                 } finally {
-                    // Reset the input so selecting the same file again will trigger the change event.
-                    this.levelFileInput.value = "";
+                    this.levelFileInput.value = ""
                 }
-            });
+            })
         }
+
+        this.saveSnapshotButton.addEventListener("click", (e: Event) =>
+            this.doAction(Action.saveSnapshot)
+        )
 
         window.addEventListener("resize", (e: Event) => {
             this.adjustCanvasSize()
@@ -711,7 +723,8 @@ export class GUI {
 
         this.howToPlayMenuItem        .addEventListener("click", (e: Event) => this.doAction(Action.howToPlay))
         this.importLURDStringButton   .addEventListener("click", (e: Event) => this.doAction(Action.importLURDString))
-        // this.showSnapshotList.addEventListener("click", (e: Event) => this.doAction(Action.toggleSnapshotList))
+        this.deleteSnapshotButton     .addEventListener("click", (e: Event) => this.doAction(Action.toggleDeleteSnapshotMode))
+        this.showSnapshotListCheckbox .addEventListener("change", (e: Event) => this.doAction(Action.toggleSnapshotList))
         this.collectionSelector       .addEventListener("change", (e: Event) => this.doAction(Action.collectionSelected))
         this.levelSelector            .addEventListener("change", (e: Event) => this.doAction(Action.levelSelected))
     }
@@ -781,14 +794,36 @@ export class GUI {
     }
 
     /** Shows the snapshot list in the GUI. */
-    private static showSnapshotList() {
-        ($("#snapshotSidebar") as any)
-            .sidebar({
-                dimPage: false,
-                closable: false,        // click on game doesn't close sidebar
-                context: $('#pusher')
-            })
-            .sidebar('toggle')
+    private static setSnapshotListVisible(visible: boolean) {
+        const sidebar = ($("#snapshotSidebar") as any)
+
+        // Initialize sidebar behavior
+        sidebar.sidebar({
+            dimPage: false,
+            closable: false,
+            context: $("#pusher")
+        })
+
+        if (visible) {
+            sidebar.sidebar("show")
+        } else {
+            sidebar.sidebar("hide")
+        }
+    }
+
+    /** Toggles the delete mode for snapshots/solutions. */
+    private toggleDeleteSnapshotMode(): void {
+        this.isDeleteSnapshotMode = !this.isDeleteSnapshotMode
+
+        if (this.isDeleteSnapshotMode) {
+            this.snapshotSidebar.classList.add("delete-mode")
+            this.deleteSnapshotButton.classList.add("red")
+            this.deleteSnapshotButton.innerHTML = '<i class="check icon"></i> Done deleting'
+        } else {
+            this.snapshotSidebar.classList.remove("delete-mode")
+            this.deleteSnapshotButton.classList.remove("red")
+            this.deleteSnapshotButton.innerHTML = '<i class="trash icon"></i> Delete snapshots'
+        }
     }
 
     /**
@@ -797,31 +832,30 @@ export class GUI {
      */
     private newCollectionSelected() {
 
-        const levelCollectionName = this.collectionSelector.value;
+        const levelCollectionName = this.collectionSelector.value
 
         // First, check if this is an imported collection loaded from a local file.
-        const importedCollection = this.importedCollections.get(levelCollectionName);
+        const importedCollection = this.importedCollections.get(levelCollectionName)
         if (importedCollection) {
-            this.setCollectionForPlaying(importedCollection);
-            this.newLevelSelected();   // Set the first level for playing
-            return;
+            this.setCollectionForPlaying(importedCollection)
+            this.app.setCurrentCollectionName(levelCollectionName)
+            this.newLevelSelected()   // Set the first level for playing
+            return
         }
 
-        // When the user has passed a level via URL parameter an extra item is in the selector.
-        // However, the user shouldn't be able to select this item once another item has been
-        // selected since the level can be loaded again then.
-        if (levelCollectionName.includes("#")) {              // for the user level the board data are stored as collection name
-            this.setUserLevelForPlaying(levelCollectionName);
-            return;
+        if (levelCollectionName.includes("#")) {              // user level via URL
+            this.setUserLevelForPlaying(levelCollectionName)
+            return
         }
 
-        Settings.lastPlayedCollectionName = levelCollectionName;
+        Settings.lastPlayedCollectionName = levelCollectionName
 
-        const collectionPromise = LevelCollectionIO.loadLevelCollection(`resources/levels/${levelCollectionName}`);
+        const collectionPromise = LevelCollectionIO.loadLevelCollection(`resources/levels/${levelCollectionName}`)
         collectionPromise.then(levelCollection => {
-            this.setCollectionForPlaying(levelCollection);
-            this.newLevelSelected();   // Set the first level for playing
-        });
+            this.setCollectionForPlaying(levelCollection)
+            this.app.setCurrentCollectionName(levelCollectionName)
+            this.newLevelSelected()   // Set the first level for playing
+        })
     }
 
     /**
@@ -864,27 +898,70 @@ export class GUI {
         this.app.setLevelForPlaying(this.levelCollection.levels[levelNumber-1])
     }
 
-    /** Adds the given snapshot to the snapshots list. */
+    /** Removes all snapshot/solution items from the sidebar list. */
+    clearSnapshotList(): void {
+        const items = this.snapshotList.querySelectorAll(".item")
+        items.forEach(item => item.remove())
+    }
+
+    /** Adds the given snapshot or solution to the sidebar list. */
     updateSnapshotList(snapshot: Snapshot) {
 
-        // const cssClass = snapshot instanceof Solution ? 'solution' : 'snapshot'
-        //
-        // const snapshotItem = document.createElement('div')
-        // snapshotItem.classList.add('item', cssClass)
-        // snapshotItem.id = 'snapshot'+snapshot.uniqueID       // set unique ID to search for
-        //
-        // const text = document.createElement('text')
-        // text.innerText = snapshot.moveCount + "/" + snapshot.pushCount
-        //
-        // snapshotItem.appendChild(text)
-        //
-        // snapshotItem.addEventListener('click', (e: Event) => {
-        //     this.app.setSnapshot(snapshot)
-        // })
-        //
-        // this.snapshotList.appendChild(snapshotItem)
-        //
-        // ($('#'+snapshotItem.id) as any).transition('jiggle', '2s')
+        const isSolution = snapshot instanceof Solution
+        const cssClass = isSolution ? "solution" : "snapshot"
+
+        const snapshotItem = document.createElement("div")
+        snapshotItem.classList.add("item", cssClass)
+        snapshotItem.id = "snapshot" + snapshot.uniqueID
+
+        // Fomantic-style: icon + content (header + description)
+        const icon = document.createElement("i")
+        icon.classList.add(isSolution ? "star" : "camera", "icon")
+
+        const contentDiv = document.createElement("div")
+        contentDiv.classList.add("content")
+
+        const headerDiv = document.createElement("div")
+        headerDiv.classList.add("header")
+        headerDiv.innerText = isSolution ? "Solution" : "Snapshot"
+
+        const descriptionDiv = document.createElement("div")
+        descriptionDiv.classList.add("description")
+        descriptionDiv.innerText = `${snapshot.moveCount} moves / ${snapshot.pushCount} pushes`
+
+        contentDiv.appendChild(headerDiv)
+        contentDiv.appendChild(descriptionDiv)
+
+        // NEW: delete icon (X) on the right side
+        const deleteIcon = document.createElement("i")
+        deleteIcon.classList.add("close", "icon", "snapshot-delete-icon")
+
+        // Clicking the delete icon should NOT trigger the double-click load.
+        deleteIcon.addEventListener("click", (e: MouseEvent) => {
+            e.stopPropagation()
+            this.app.deleteSnapshot(snapshot)
+        })
+
+        snapshotItem.appendChild(icon)
+        snapshotItem.appendChild(contentDiv)
+        snapshotItem.appendChild(deleteIcon)
+
+        // Double-click restores this snapshot / solution on the board.
+        snapshotItem.addEventListener("dblclick", () => {
+            this.app.setSnapshot(snapshot)
+        })
+
+        this.snapshotList.appendChild(snapshotItem)
+
+        ;($('#' + snapshotItem.id) as any).transition("jiggle", "0.5s")
+    }
+
+    /** Removes the given snapshot/solution item from the sidebar list. */
+    removeSnapshotFromList(snapshot: Snapshot): void {
+        const item = document.getElementById("snapshot" + snapshot.uniqueID)
+        if (item) {
+            item.remove()
+        }
     }
 
     /**
@@ -923,7 +1000,11 @@ export class GUI {
                 break
 
             case Action.toggleSnapshotList:
-                GUI.showSnapshotList()
+                this.toggleSnapshotList()
+                break
+
+            case Action.toggleDeleteSnapshotMode:
+                this.toggleDeleteSnapshotMode()
                 break
 
             case Action.collectionSelected:
@@ -944,6 +1025,19 @@ export class GUI {
             default:
                 this.app.doAction(action)      // GUI can't handle it => pass to app
         }
+    }
+
+    /** Toggles the snapshot list visibility and stores the setting. */
+    private toggleSnapshotList(): void {
+        // Flip the stored flag (this works for both checkbox + keyboard)
+        const newValue = !Settings.showSnapshotListFlag
+        Settings.showSnapshotListFlag = newValue
+
+        // Keep the checkbox in sync
+        this.showSnapshotListCheckbox.checked = newValue
+
+        // Show or hide the sidebar
+        GUI.setSnapshotListVisible(newValue)
     }
 
 

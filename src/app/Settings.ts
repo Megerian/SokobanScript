@@ -16,25 +16,27 @@ export class Settings {
         soundEnabled:                         true,
         reachablePositionColor:               '#FFFFFFEF',
         backgroundColor:                      "#EBEDEF",
-        backgroundImageName:                  ""
+        backgroundImageName:                  "",
+        showSnapshotListFlag:                 true
     }
 
     /**
      * Localforage access is slow, hence, all settings are also stored as class members.
      * These are also the default values.
      */
-    private static skinName_: SKIN_NAME = "KSokoban2"            // Name of the skin used for visually representing a level board
-    private static graphicSize_: string = "auto"                 // size of the skin graphics in pixels or "auto" for automatic size
-    private static moveAnimationDelayMs_ = 50                    // Animation delay for moving the player/box in milliseconds
-    private static selectedObjectAnimationsSpeedPercent_ = 100   // Animation speed for showing an animation for the selected player/box in % of default speed
-    private static showAnimationFlag_ = true                     // Flag indicating whether animations for a selected objects are to be shown
-    private static hideWallsFlag_ = false                        // Flag indicating whether walls are to be drawn
-    private static soundEnabled_ = true                          // Flag indicating whether sounds are to be played
+    private static skinName_: SKIN_NAME = "KSokoban2"                   // Name of the skin used for visually representing a level board
+    private static graphicSize_: string = "auto"                        // size of the skin graphics in pixels or "auto" for automatic size
+    private static moveAnimationDelayMs_ = 50                   // Animation delay for moving the player/box in milliseconds
+    private static selectedObjectAnimationsSpeedPercent_ = 100  // Animation speed for showing an animation for the selected player/box in % of default speed
+    private static showAnimationFlag_ = true                    // Flag indicating whether animations for a selected objects are to be shown
+    private static hideWallsFlag_ = false                       // Flag indicating whether walls are to be drawn
+    private static soundEnabled_ = true                         // Flag indicating whether sounds are to be played
     private static reachablePositionColor_ = '#FFFFFFEF'         // Background color
     private static backgroundColor_ = "#EBEDEF"                  // Background color
     private static backgroundImageName_ = ""                     // Name of the image to be used as a background or the empty string for "show background color"
+    private static showSnapshotListFlag_ = true                 // Flag indicating whether the snapshot list is visible
     private static lastPlayedCollectionName_ = ""                // The last collection that has been played
-    private static lastPlayedLevelNumber_ = 1                    // The last played level number in "lastPlayedCollectionName"
+    private static lastPlayedLevelNumber_ = 1                   // The last played level number in "lastPlayedCollectionName"
 
     /** Skin name */
     static get skinName() { return this.skinName_ }
@@ -106,6 +108,13 @@ export class Settings {
         localforage.setItem('backgroundImageName', backgroundImageName).catch(function(err) { console.log(err) })
     }
 
+    /** Show snapshot list flag */
+    static get showSnapshotListFlag() { return this.showSnapshotListFlag_ }
+    static set showSnapshotListFlag(showSnapshotListFlag: boolean) {
+        Settings.showSnapshotListFlag_ = showSnapshotListFlag
+        localforage.setItem('showSnapshotListFlag', showSnapshotListFlag).catch(function(err) { console.log(err) })
+    }
+
     /** Last played collection */
     static get lastPlayedCollectionName() { return this.lastPlayedCollectionName_ }
     static set lastPlayedCollectionName(lastPlayedCollection: string) {
@@ -131,5 +140,6 @@ export class Settings {
         Settings.soundEnabled_                 = await localforage.getItem<boolean>('soundEnabled')        ?? Settings.DEFAULTS.soundEnabled
         Settings.backgroundColor_              = await localforage.getItem<string>('backgroundColor')      ?? Settings.DEFAULTS.backgroundColor
         Settings.backgroundImageName           = await localforage.getItem<string>('backgroundImageName')  ?? Settings.DEFAULTS.backgroundImageName
+        Settings.showSnapshotListFlag_         = await localforage.getItem<boolean>('showSnapshotListFlag') ?? Settings.DEFAULTS.showSnapshotListFlag
     }
 }
