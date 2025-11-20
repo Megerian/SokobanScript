@@ -8,7 +8,7 @@ import {
     XSB_BOX,
     XSB_GOAL,
     XSB_WALL, XSB_FLOOR, XSB_BACKGROUND
-} from "../Sokoban/LevelFormat"
+} from "../Sokoban/PuzzleFormat"
 
 const NONE = -1
 
@@ -337,7 +337,7 @@ export class Board {
         }
 
         if(board.boxCount == 0) {
-            return "There is no box in the level!"
+            return "There is no box in the puzzle!"
         }
 
         Board.createNeighborArrays(board)

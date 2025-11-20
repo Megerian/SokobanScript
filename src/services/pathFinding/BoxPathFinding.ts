@@ -21,7 +21,7 @@ import {PlayerDistances} from "../distanceCalculations/PlayerDistances"
  * #-------#
  * #########
  *
- * There are two boxes in this level.
+ * There are two boxes in this puzzle.
  * When the user selects the box next to the player to be pushed to the goal on the
  * shortest path (regarding pushes) the best would be to first push the right box one square
  * down, then to push the left box to the goal and then pushing the other box back to its goal.

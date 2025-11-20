@@ -23,7 +23,7 @@ export const LURD_CHARS = ["U", "D", "R", "L", "u", "d", "r", "l"]
 export type XSB_CHAR = '#' | ' ' | '$' | '*' | '@' | '+' | '.' | '-'
 export const XSB_CHARS = ['#', ' ', '$', '*', '@', '+', '.', '-']
 
-export class LevelFormat {
+export class PuzzleFormat {
 
     static isValidBoardRow(boardRow: string): boolean {
 

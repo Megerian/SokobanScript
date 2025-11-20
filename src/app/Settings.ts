@@ -24,7 +24,7 @@ export class Settings {
      * Localforage access is slow, hence, all settings are also stored as class members.
      * These are also the default values.
      */
-    private static skinName_: SKIN_NAME = "KSokoban2"                   // Name of the skin used for visually representing a level board
+    private static skinName_: SKIN_NAME = "KSokoban2"                   // Name of the skin used for visually representing a puzzle board
     private static graphicSize_: string = "auto"                        // size of the skin graphics in pixels or "auto" for automatic size
     private static moveAnimationDelayMs_ = 50                   // Animation delay for moving the player/box in milliseconds
     private static selectedObjectAnimationsSpeedPercent_ = 100  // Animation speed for showing an animation for the selected player/box in % of default speed
@@ -36,7 +36,7 @@ export class Settings {
     private static backgroundImageName_ = ""                     // Name of the image to be used as a background or the empty string for "show background color"
     private static showSnapshotListFlag_ = true                 // Flag indicating whether the snapshot list is visible
     private static lastPlayedCollectionName_ = ""                // The last collection that has been played
-    private static lastPlayedLevelNumber_ = 1                   // The last played level number in "lastPlayedCollectionName"
+    private static lastPlayedPuzzleNumber_ = 1                  // The last played puzzle number in "lastPlayedCollectionName"
 
     /** Skin name */
     static get skinName() { return this.skinName_ }
@@ -52,7 +52,7 @@ export class Settings {
         localforage.setItem('graphicSize', graphicSize).catch(function(err) { console.log(err) })
     }
 
-    /** Move animation delay in milli seconds */
+    /** Move animation delay in milliseconds */
     static get moveAnimationDelayMs() { return this.moveAnimationDelayMs_ }
     static set moveAnimationDelayMs(moveAnimationDelayMs: number) {
         Settings.moveAnimationDelayMs_ = moveAnimationDelayMs
@@ -122,11 +122,11 @@ export class Settings {
         localforage.setItem('lastPlayedCollection', lastPlayedCollection).catch(function(err) { console.log(err) })
     }
 
-    /** Last played level number */
-    static get lastPlayedLevelNumber() { return this.lastPlayedLevelNumber_ }
-    static set lastPlayedLevelNumber(lastPlayedLevelNumber: number) {
-        Settings.lastPlayedLevelNumber_ = lastPlayedLevelNumber
-        localforage.setItem('lastPlayedLevelNumber', lastPlayedLevelNumber).catch(function(err) { console.log(err) })
+    /** Last played puzzle number */
+    static get lastPlayedPuzzleNumber() { return this.lastPlayedPuzzleNumber_ }
+    static set lastPlayedPuzzleNumber(lastPlayedPuzzleNumber: number) {
+        Settings.lastPlayedPuzzleNumber_ = lastPlayedPuzzleNumber
+        localforage.setItem('lastPlayedPuzzleNumber', lastPlayedPuzzleNumber).catch(function(err) { console.log(err) })
     }
 
     /** Loads the settings from the browser storage. */

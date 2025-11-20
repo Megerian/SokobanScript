@@ -3,16 +3,16 @@
  * create a valid [Snapshot] or [Solution] for the given `board`.
  *
  * Example usage:
- * val snapshot = LURDVerifierForwardPlay(level).verifyLURD("ldurldurld")
+ * val snapshot = LURDVerifierForwardPlay(puzzle).verifyLURD("ldurldurld")
  * when(snapshot) {
- *   is Solution -> ...       "it's a solution for the level
- *   is Snapshot -> ...       "it's snapshot for the level
- *   is null     -> ...       "invalid lurd for level
+ *   is Solution -> ...       "it's a solution for the puzzle
+ *   is Snapshot -> ...       "it's snapshot for the puzzle
+ *   is null     -> ...       "invalid lurd for puzzle
  * }
  */
 import {Board} from "../../board/Board"
 import {Snapshot} from "../../Sokoban/domainObjects/Snapshot"
-import {LURD_CHARS} from "../../Sokoban/LevelFormat"
+import {LURD_CHARS} from "../../Sokoban/PuzzleFormat"
 import {NONE} from "../../app/SokobanApp"
 import {DIRECTION, Directions} from "../../Sokoban/Directions"
 import {Metrics} from "../../Sokoban/domainObjects/Metrics"
@@ -31,7 +31,7 @@ export class LURDVerifier {
      * Returns a [Snapshot] created from the passed [lurdString]
      * or `null` if the [lurdString] is invalid for the [board].
      *
-     * If the level is solved by the [lurdString] then a `Solution`
+     * If the puzzle is solved by the [lurdString] then a `Solution`
      * is returned (which is a subtype of `Snapshot`).
      *
      * The [lurdString] must only contain these characters: l,u,r,d,L,U,R,D,*
@@ -44,7 +44,7 @@ export class LURDVerifier {
      *  <li> pushes are represented by upper case letters
      * </ol>
      * If it is a [Solution] then all unnecessary additional trailing moves are pruned
-     * so the LURD string ends as soon as the level is solved.
+     * so the LURD string ends as soon as the puzzle is solved.
      *
      * The metrics (moves, pushes, box lines, box changes, pushing sessions and player lines)
      * are calculated and stored.
@@ -60,9 +60,9 @@ export class LURDVerifier {
      * const snapshot = new LURDVerifier(board).verifyLURD("ldurldurld")
      *
      * when(snapshot) {
-     *   is Solution -> ...       "it's a solution for the level
-     *   is Snapshot -> ...       "it's snapshot for the level
-     *   else        -> ...       "invalid lurd for level
+     *   is Solution -> ...       "it's a solution for the puzzle
+     *   is Snapshot -> ...       "it's snapshot for the puzzle
+     *   else        -> ...       "invalid lurd for puzzle
      * }
      */
     verifyLURD(lurdString: string): Snapshot | null {

@@ -1,34 +1,39 @@
 import {SokobanApp} from "./app/SokobanApp"
 import {URLParameterParser} from "./URLParameterParser"
-import {Level} from "./Sokoban/domainObjects/Level";
+import {Puzzle} from "./Sokoban/domainObjects/Puzzle";
 
 const app = new SokobanApp()
-const startLevelViaURL = URLParameterParser.parseLevelFromURLParameter()
+const startPuzzleViaURL = URLParameterParser.parsePuzzleFromURLParameter()
 
 app.init().then( () => {
-    if(startLevelViaURL != null) {
+    if(startPuzzleViaURL != null) {
         window.history.replaceState('', 'Sokoban', location.origin) // delete the parameters from the URL
 
-        startLevelViaURL.title = "Sokoban Statistics Level"
-        addUserLevelEntry(startLevelViaURL) // add the level as part of a new collection to the gui
+        startPuzzleViaURL.title = "Sokoban Statistics Puzzle"
+        addUserPuzzleEntry(startPuzzleViaURL) // add the puzzle as part of a new collection to the gui
 
-        // Fake a selection of a new level collection to be played so the default start level is loaded.
+        // Fake a selection of a new puzzle collection to be played so the default start puzzle is loaded.
         document.getElementById("collectionSelector")!!.dispatchEvent(new CustomEvent('change'))
     }
     else {
-        // Fake a selection of a new level collection to be played so the default start level is loaded.
+        // Fake a selection of a new puzzle collection to be played so the default start puzzle is loaded.
         document.getElementById("collectionSelector")!!.dispatchEvent(new CustomEvent('change'))
     }
+
+
+    // Expose the app instance for debugging in the browser console.
+    // This allows to type "sokobanApp" in the console of the browser to access the app instance.
+    ;(window as any).sokobanApp = app
 })
 
  /**
- * Adds a new entry to the list for the user level.
+ * Adds a new entry to the list for the user puzzle.
  */
-function addUserLevelEntry(level: Level) {
-    const userLevelCollectionName = document.createElement('option')
-    userLevelCollectionName.value = level.board.getBoardAsString()
-    userLevelCollectionName.innerText = level.title
+function addUserPuzzleEntry(puzzle: Puzzle) {
+    const userPuzzleCollectionName = document.createElement('option')
+    userPuzzleCollectionName.value = puzzle.board.getBoardAsString()
+    userPuzzleCollectionName.innerText = puzzle.title
     const collectionSelector = document.getElementById("collectionSelector")!! as HTMLSelectElement
-    collectionSelector.replaceChildren(userLevelCollectionName, ...collectionSelector.children) // Add the new collection as first collection
+    collectionSelector.replaceChildren(userPuzzleCollectionName, ...collectionSelector.children) // Add the new collection as first collection
     collectionSelector.selectedIndex = 0
 }

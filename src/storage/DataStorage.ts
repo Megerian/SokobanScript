@@ -1,8 +1,8 @@
 import localforage from "localforage"
-import {Snapshot} from "../Sokoban/domainObjects/Snapshot"
-import {Solution} from "../Sokoban/domainObjects/Solution"
-import {Metrics} from "../Sokoban/domainObjects/Metrics"
-import {Board} from "../board/Board"
+import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
+import { Solution } from "../Sokoban/domainObjects/Solution"
+import { Metrics } from "../Sokoban/domainObjects/Metrics"
+import { Board } from "../board/Board"
 
 interface StoredSnapshotDTO {
     lurd: string
@@ -20,32 +20,30 @@ interface StoredSnapshotDTO {
 export class DataStorage {
 
     static exportDatabaseContentToFile() {
-        let myJson = JSON.stringify("test")
-        let element = document.createElement('a')
-        element.setAttribute('href', 'data:text/plaincharset=utf-8,' + encodeURIComponent(myJson))
-        element.setAttribute('download', 'Sokoban data.json')
-        element.style.display = 'none'
+        const myJson = JSON.stringify("test")
+        const element = document.createElement("a")
+        element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(myJson))
+        element.setAttribute("download", "Sokoban data.json")
+        element.style.display = "none"
         document.body.appendChild(element)
         element.click()
         document.body.removeChild(element)
     }
-
 
     /**
      * Configure the localforage storage.
      */
     static init() {
         localforage.config({
-            name        : 'Sokoban Typescript',
-            description : 'DataStorage for Sokoban Typescript'
+            name:        "Sokoban Typescript",
+            description: "DataStorage for Sokoban Typescript"
         })
     }
 
-
     /**
      * Returns the storage key for all snapshots/solutions belonging to the given board.
-     * Identical boards (same layout) will share the same key and therefore the same
-     * snapshots and solutions.
+     * Identical boards (same layout string) share the same key and therefore
+     * the same snapshots and solutions.
      */
     private static getSnapshotStorageKey(board: Board): string {
         const boardString = board.getBoardAsString()
@@ -55,7 +53,7 @@ export class DataStorage {
 
     /**
      * Simple deterministic hash function for strings.
-     * This is not cryptographically secure but good enough for keying.
+     * Not cryptographically secure, but fine for keying.
      */
     private static hashString(value: string): string {
         let hash = 0
@@ -70,6 +68,10 @@ export class DataStorage {
     /**
      * Stores a snapshot or solution for the given board.
      * If an entry with the same LURD and type already exists, it is not added again.
+     *
+     * ➜ Perfekt für Auto-Save:
+     *    doppelte Lösungen werden stillschweigend ignoriert,
+     *    es gibt hier keinerlei UI-Meldungen.
      */
     static async storeSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
         const key = this.getSnapshotStorageKey(board)
@@ -78,8 +80,9 @@ export class DataStorage {
 
         const isSolution = snapshot instanceof Solution
 
+        // Duplicate check (LURD + isSolution)
         if (existing.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
-            return // Already stored.
+            return // Already stored – no message, einfach abbrechen.
         }
 
         existing.push({
@@ -113,18 +116,18 @@ export class DataStorage {
 
         return stored.map(dto => {
             const metrics = new Metrics()
-            metrics.moveCount = dto.moveCount
-            metrics.pushCount = dto.pushCount
-            metrics.boxLineCount = dto.boxLineCount
-            metrics.boxChangeCount = dto.boxChangeCount
-            metrics.pushingSessionCount = dto.pushingSessionCount
-            metrics.playerLineCount = dto.playerLineCount
+            metrics.moveCount          = dto.moveCount
+            metrics.pushCount          = dto.pushCount
+            metrics.boxLineCount       = dto.boxLineCount
+            metrics.boxChangeCount     = dto.boxChangeCount
+            metrics.pushingSessionCount= dto.pushingSessionCount
+            metrics.playerLineCount    = dto.playerLineCount
 
             const snap = dto.isSolution
                 ? new Solution(dto.lurd, metrics)
                 : new Snapshot(dto.lurd, metrics)
 
-            snap.name = dto.name
+            snap.name  = dto.name
             snap.notes = dto.notes
             return snap
         })

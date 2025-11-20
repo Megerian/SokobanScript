@@ -6,7 +6,7 @@ import {
     MOVE_UP_CHAR,
     PUSH_DOWN_CHAR, PUSH_LEFT_CHAR, PUSH_RIGHT_CHAR,
     PUSH_UP_CHAR
-} from "./LevelFormat"
+} from "./PuzzleFormat"
 
 export type DIRECTION = 0 | 1 | 2 | 3
 

@@ -37,7 +37,7 @@ export class Sound {
         }
     }
 
-    static playLevelSolvedSound() {
+    static playPuzzleSolvedSound() {
         if (this.playSoundEnabled()) {
             this.solvedSound.play()
         }

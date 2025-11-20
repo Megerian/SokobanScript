@@ -1,228 +1,269 @@
-import {DIRECTION, Directions, DOWN, LEFT, RIGHT, UP} from "../Sokoban/Directions"
-import {Board, NOT_REACHABLE} from "../board/Board"
-import {MoveHistory} from "./MoveHistory"
-import {Action, GUI} from "../gui/GUI"
-import {Sound} from "../sound/Sound"
-import {PlayerPathFinding} from "../services/pathFinding/PlayerPathFinding"
-import {BoxPathFinding} from "../services/pathFinding/BoxPathFinding"
-import {Settings} from "./Settings"
-import {Utilities} from "../Utilities/Utilities"
-import {LevelFormat} from "../Sokoban/LevelFormat"
-import {LURDVerifier} from "../services/lurdVerifier/LurdVerifier"
-import {Solution} from "../Sokoban/domainObjects/Solution"
-import {Level} from "../Sokoban/domainObjects/Level"
-import {Snapshot} from "../Sokoban/domainObjects/Snapshot"
-import {DataStorage} from "../storage/DataStorage"
-import {Messages} from "../gui/Messages"
-import {Metrics} from "../Sokoban/domainObjects/Metrics"
+import { DIRECTION, Directions, DOWN, LEFT, RIGHT, UP } from "../Sokoban/Directions"
+import { Board, NOT_REACHABLE } from "../board/Board"
+import { MoveHistory } from "./MoveHistory"
+import { Action, GUI } from "../gui/GUI"
+import { Sound } from "../sound/Sound"
+import { PlayerPathFinding } from "../services/pathFinding/PlayerPathFinding"
+import { BoxPathFinding } from "../services/pathFinding/BoxPathFinding"
+import { Settings } from "./Settings"
+import { Utilities } from "../Utilities/Utilities"
+import { PuzzleFormat } from "../Sokoban/PuzzleFormat"
+import { LURDVerifier } from "../services/lurdVerifier/LurdVerifier"
+import { Solution } from "../Sokoban/domainObjects/Solution"
+import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
+import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
+import { DataStorage } from "../storage/DataStorage"
+import { Messages } from "../gui/Messages"
 
 export const NONE = -1
-const enum MovementType { MOVE= "Move", PUSH = "Push", PUSH_TO_GOAL = "PushToGoal", NONE = "None" }
+
+const enum MovementType {
+    MOVE = "Move",
+    PUSH = "Push",
+    PUSH_TO_GOAL = "PushToGoal",
+    NONE = "None"
+}
 
 export class SokobanApp {
 
-    private gui: GUI
+    private readonly gui: GUI
 
-    moves          = 0
-    pushes         = 0
+    moves  = 0
+    pushes = 0
 
-    moveHistory = new MoveHistory()
+    readonly moveHistory = new MoveHistory()
 
-    selectedBoxPosition    = NONE
-    isPlayerSelected = false
+    selectedBoxPosition = NONE
+    isPlayerSelected    = false
 
-    private isPlayerCurrentlyMoving = false // Flag indicating whether the player is moving now
+    /** Flag indicating whether the player is currently moving along an animated path. */
+    private isPlayerCurrentlyMoving = false
 
-    board = Board.getDummyBoard()
-    private level = new Level(this.board)
+    board: Board = Board.getDummyBoard()
 
-    private currentCollectionName = ""
+    /** The currently active puzzle (domain object is still called Puzzle). */
+    private puzzle: Puzzle = new Puzzle(this.board)
 
-    private playerPathFinding = new PlayerPathFinding(this.board)
-    private boxPathFinding = new BoxPathFinding(this.board)
-    private lurdVerifier = new LURDVerifier(this.board)
+    private playerPathFinding  = new PlayerPathFinding(this.board)
+    private boxPathFinding     = new BoxPathFinding(this.board)
+    private lurdVerifier       = new LURDVerifier(this.board)
 
-    private isRedoInProgress = false   // when a redo solves the board (again) don't show a "solved" animation
+    /**
+     * When a redo/replay/snapshot-load solves the puzzle, do not show a “solved”
+     * animation and do not auto-save a solution.
+     */
+    private isRedoInProgress = false
 
     constructor() {
         this.gui = new GUI(this)
     }
 
     /** Initialize the app. */
-    async init() {
-        DataStorage.init()                  // Configure the data storage for usage
-        await Settings.loadSettings()       // Load the settings from the data storage
-        await this.gui.setCurrentSettings() // Set the current settings in the GUI
+    async init(): Promise<void> {
+        DataStorage.init()
+        await Settings.loadSettings()
+        await this.gui.setCurrentSettings()
     }
 
-    setLevelForPlaying(level: Level) {
+    // ---------------------------------------------------------------------
+    // Puzzle setup
+    // ---------------------------------------------------------------------
 
-        // Store the reference to the level so that snapshots/solutions are attached to the correct level.
-        this.level = level
+    /**
+     * Sets a given puzzle as the current playable puzzle.
+     * This also resets move counters, history, path finding and snapshot/solution list.
+     */
+    setPuzzleForPlaying(puzzle: Puzzle): void {
 
-        this.board = level.board.clone()    // avoid changing the board of the level
+        if (!puzzle) {
+            console.error("setPuzzleForPlaying called with undefined puzzle", this);
+            return;
+        }
+
+        // Store reference so snapshots/solutions are attached to the correct puzzle.
+        this.puzzle = puzzle
+
+        // Clone the board to avoid mutating the puzzle's original board.
+        this.board = puzzle.board.clone()
 
         this.moves  = 0
         this.pushes = 0
 
-        this.selectedBoxPosition = NONE
-        this.isPlayerSelected = false
-        this.isPlayerCurrentlyMoving = false // Flag indicating whether the player is moving now
+        this.selectedBoxPosition     = NONE
+        this.isPlayerSelected        = false
+        this.isPlayerCurrentlyMoving = false
 
         this.moveHistory.clear()
 
         this.playerPathFinding = new PlayerPathFinding(this.board)
-        this.boxPathFinding = new BoxPathFinding(this.board)
-        this.lurdVerifier = new LURDVerifier(this.board)
+        this.boxPathFinding    = new BoxPathFinding(this.board)
+        this.lurdVerifier      = new LURDVerifier(this.board)
 
-        this.gui.newLevelLoaded()       // inform the GUI about a new loaded level
+        // Inform the GUI that a new puzzle has been loaded.
+        this.gui.newPuzzleLoaded()
         this.updateMovesPushesInGUI()
 
-
-        // Clear and (later) repopulate the snapshot/solution list.
+        // Clear and repopulate the snapshot/solution list.
         this.gui.clearSnapshotList()
 
-        // Load stored snapshots/solutions for this board (identical boards share the same data).
-        DataStorage.loadSnapshotsAndSolutions(this.level.board)
+        // 1) Show snapshots/solutions that are already part of the puzzle (e.g. from file).
+        for (const solution of this.puzzle.solutions.values()) {
+            this.gui.updateSnapshotList(solution)
+        }
+        for (const snapshot of this.puzzle.snapshots.values()) {
+            this.gui.updateSnapshotList(snapshot)
+        }
+
+        // 2) Load stored snapshots/solutions for this board (identical boards share data).
+        DataStorage.loadSnapshotsAndSolutions(this.puzzle.board)
             .then(stored => {
                 stored.forEach(snap => {
                     if (snap instanceof Solution) {
-                        this.level.addSolution(snap)
+                        // Keine Meldungen beim Laden aus Storage:
+                        const added = this.addSolutionToPuzzle(snap, false)
+                        if (added) {
+                            this.gui.updateSnapshotList(snap)
+                        }
                     } else {
-                        this.level.addSnapshot(snap)
+                        const added = this.addSnapshotToPuzzle(snap, false)
+                        if (added) {
+                            this.gui.updateSnapshotList(snap)
+                        }
                     }
-                    this.gui.updateSnapshotList(snap)
                 })
             })
             .catch(error => console.error("Failed to load snapshots/solutions", error))
     }
 
-    async cellClicked(position: number) {
+    // ---------------------------------------------------------------------
+    // Mouse click handling on the board
+    // ---------------------------------------------------------------------
+
+    async cellClicked(position: number): Promise<void> {
 
         if (this.board.isBox(position)) {
             this.handleBoxClicked(position)
             return
         }
 
-        if (!this.board.isActive(position)) {        // wall or background graphic clicked
+        if (!this.board.isActive(position)) {
             this.handleWallOrBackgroundClicked()
             return
         }
 
-        if (position == this.board.playerPosition && this.selectedBoxPosition == NONE) { // player clicked, and it's not the target position for the box
+        if (position === this.board.playerPosition && this.selectedBoxPosition === NONE) {
             this.handlePlayerClicked()
             return
         }
 
-        if (this.board.isAccessible(position)) {    // move the player/push a box to the clicked position
+        if (this.board.isAccessible(position)) {
             this.handleAccessiblePositionClicked(position)
-            return
         }
     }
 
     /**
-     * Clicking a wall or a background graphic deselects the
-     * player/box and removes all displayed reachable markers.
-     *
-     * Neither the player nor any box is moved.
-     * @private
+     * Clicking a wall or background deselects player/box
+     * and removes all reachable markers.
      */
-    private handleWallOrBackgroundClicked() {
-        this.selectedBoxPosition = NONE         // deselect any selected box
-        this.isPlayerSelected = false           // deselect the player
-        this.board.removeAllReachableMarkers()  // remove any displayed reachable markers
+    private handleWallOrBackgroundClicked(): void {
+        this.selectedBoxPosition = NONE
+        this.isPlayerSelected    = false
+        this.board.removeAllReachableMarkers()
         this.gui.updateCanvas()
     }
 
     /**
-     * Called when the user has clicked at an accessible position (floor/goal/player).
-     * It's checked now whether a box is selected.
-     * If yes, then the box is pushed to the clicked position, if possible.
-     * If no, then the player is moved to the clicked position, if possible.
-     *
-     * @param position  the clicked position
+     * Called when the user clicks an accessible cell (floor/goal/player).
+     * If a box is selected, try to push that box to the clicked position.
+     * Otherwise, move the player there.
      */
-    private handleAccessiblePositionClicked(position: number) {
+    private handleAccessiblePositionClicked(position: number): void {
 
-        let path: Array<number> | null
+        let path: number[] | null
 
-        // Calculate the path for the player to go.
-        if (this.selectedBoxPosition != NONE) {
+        if (this.selectedBoxPosition !== NONE) {
             path = this.getPlayerPathForPushingBox(this.selectedBoxPosition, position)
         } else {
             path = this.playerPathFinding.getPathTo(position)
         }
 
-        this.selectedBoxPosition = NONE  // moving the player always removes the selection
-        this.isPlayerSelected    = false // of the box and the player
+        // Any movement clears selection and reachable markers.
+        this.selectedBoxPosition = NONE
+        this.isPlayerSelected    = false
         this.board.removeAllReachableMarkers()
         this.gui.updateCanvas()
 
-        // Move player along the calculated path.
         if (path == null) {
-            SokobanApp.playSoundForMovementType(MovementType.NONE)  // No movement could be made
+            SokobanApp.playSoundForMovementType(MovementType.NONE)
         } else {
             this.isPlayerCurrentlyMoving = true
-            this.movePlayerWithAnimation(path).then(
-                (lastMovementTyp: MovementType) => {
-                    this.isPlayerCurrentlyMoving = false
-                    SokobanApp.playSoundForMovementType(lastMovementTyp)
-                }
-            )
+            this.movePlayerWithAnimation(path).then(lastMovementType => {
+                this.isPlayerCurrentlyMoving = false
+                SokobanApp.playSoundForMovementType(lastMovementType)
+            })
         }
     }
 
     /**
-     * Called when the users clicked at a box.
-     * Note:
-     * When another box had been selected then this new click isn't
-     * considered to be a target position for the selected box.
-     * That means: we don't play the "push not possible"-sound but
-     * just select the new clicked box.
-     *
-     * @param position  position of the box
+     * Called when the user clicks a box.
+     * - Clicking another box selects that box and shows reachable positions.
+     * - Clicking the same box again deselects it.
      */
-    private handleBoxClicked(position: number) {
+    private handleBoxClicked(position: number): void {
 
-        this.isPlayerSelected = false           // stop the animation for the maybe selected player
-        this.board.removeAllReachableMarkers()  // remove all previously marked reachable positions
+        this.isPlayerSelected = false
+        this.board.removeAllReachableMarkers()
 
-        if (position == this.selectedBoxPosition) {
-            this.selectedBoxPosition = NONE     // Clicking the same box again deselects it
+        if (position === this.selectedBoxPosition) {
+            this.selectedBoxPosition = NONE
         } else {
-            this.selectedBoxPosition = position // Clicking a box selects it and shows its reachable positions
+            this.selectedBoxPosition = position
             const reachableBoxPositions = this.boxPathFinding.getReachableBoxPositions(position)
             this.board.markBoxReachable(reachableBoxPositions)
         }
+
         this.gui.updateCanvas()
     }
 
     /**
-     * Called when the user has clicked the player (but no box has been selected).
+     * Called when the user clicks the player (no box selected).
+     * Toggles reachable position markers for the player.
      */
-    private handlePlayerClicked() {
-        if (this.isPlayerSelected) {    // Clicking at the selected player deselects the player
+    private handlePlayerClicked(): void {
+        if (this.isPlayerSelected) {
             this.isPlayerSelected = false
             this.board.removeAllReachableMarkers()
         } else {
             this.isPlayerSelected = true
             const reachablePlayerPositions = this.playerPathFinding.getReachablePositions()
             this.board.markPlayerReachable(reachablePlayerPositions)
-            this.board.reachableMarker[this.board.playerPosition] = NOT_REACHABLE   // don't draw reachable graphic above player graphic
+            // Do not draw reachable graphic above the player itself.
+            this.board.reachableMarker[this.board.playerPosition] = NOT_REACHABLE
         }
         this.gui.updateCanvas()
     }
 
+    // ---------------------------------------------------------------------
+    // Path + animation
+    // ---------------------------------------------------------------------
+
+    /**
+     * Moves the player along a given path with animation.
+     * Returns the last movement type performed (for sound).
+     */
     private async movePlayerWithAnimation(playerPath: number[]): Promise<MovementType> {
 
         let lastMovementType = MovementType.NONE
 
-        for(let moveNo=0; moveNo<playerPath.length; moveNo++) {
+        for (let moveNo = 0; moveNo < playerPath.length; moveNo++) {
             const newPlayerPosition = playerPath[moveNo]
-            if(this.isPlayerCurrentlyMoving) {      // moving the player may be stopped by the user by clicking on new cell
+
+            // Movement may be stopped by clicking another cell.
+            if (this.isPlayerCurrentlyMoving) {
                 const moveDirection = this.board.getDirectionOfMove(this.board.playerPosition, newPlayerPosition)
                 lastMovementType = this.movePlayerToDirection(moveDirection)
-                if(moveNo < playerPath.length-1 && Settings.moveAnimationDelayMs != 0) {    // don't wait after last move
+
+                if (moveNo < playerPath.length - 1 && Settings.moveAnimationDelayMs !== 0) {
                     await this.sleep(Settings.moveAnimationDelayMs)
                 }
             }
@@ -232,31 +273,28 @@ export class SokobanApp {
     }
 
     /**
-     * Returns the positions the player must go along for pushing a box from
-     * `startBoxPosition` to `targetBoxPosition` or `null` in case no such path exists.
-     *
-     * @param startBoxPosition  the current position of the box to be pushed
-     * @param targetBoxPosition  the target position of the box to be pushed
-     * @return the positions the player must go to push the box
+     * Returns the positions the player must go along to push a box from
+     * `startBoxPosition` to `targetBoxPosition`, or `null` if no such path exists.
      */
-    private getPlayerPathForPushingBox(startBoxPosition: number, targetBoxPosition: number): Array<number> | null {
+    private getPlayerPathForPushingBox(
+        startBoxPosition: number,
+        targetBoxPosition: number
+    ): number[] | null {
 
         const boxPath = this.boxPathFinding.getBoxPathPushesMoves(startBoxPosition, targetBoxPosition)
+        if (boxPath == null) return null
+        if (boxPath.length === 0) return []
 
-        if(boxPath == null) return null
-        if(boxPath.length == 0) return []
+        const playerPositionBackup = this.board.playerPosition
+        let currentBoxPosition     = startBoxPosition
 
-        let playerPositionBackup = this.board.playerPosition
-
-        let currentBoxPosition = startBoxPosition
-
-        const playerPositions = new Array<number>()
+        const playerPositions: number[] = []
 
         for (const newBoxPosition of boxPath) {
 
             this.board.setBox(currentBoxPosition)
             const positionToPushFrom = currentBoxPosition + (currentBoxPosition - newBoxPosition)
-            const playerPath = this.playerPathFinding.getPathTo(positionToPushFrom)
+            const playerPath         = this.playerPathFinding.getPathTo(positionToPushFrom)
             this.board.removeBox(currentBoxPosition)
 
             if (playerPath == null) {
@@ -268,26 +306,32 @@ export class SokobanApp {
             playerPositions.push(currentBoxPosition)
 
             this.board.playerPosition = currentBoxPosition
-            currentBoxPosition = newBoxPosition
+            currentBoxPosition        = newBoxPosition
         }
 
-        // Restore the original board
+        // Restore original board state.
         this.board.playerPosition = playerPositionBackup
         this.board.setBox(startBoxPosition)
 
         return playerPositions
     }
 
-    private sleep(ms: number) {
+    private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms))
     }
 
-    private updateMovesPushesInGUI() {
+    // ---------------------------------------------------------------------
+    // Move / push counters + solved handling
+    // ---------------------------------------------------------------------
 
-        this.gui.movesText.textContent  = ""+this.moves
-        this.gui.pushesText.textContent = ""+this.pushes
+    /** Updates move/push counters in the GUI and enables/disables undo/redo buttons. */
+    private updateMovesPushesInGUI(): void {
 
-        if(this.moveHistory.getNextMoveLURDChar() == null) {
+        this.gui.movesText.textContent  = String(this.moves)
+        this.gui.pushesText.textContent = String(this.pushes)
+
+        // Redo buttons enabled only if there is at least one undone move.
+        if (!this.moveHistory.hasRedo) {
             this.gui.redoAllButton.setAttribute("disabled", "true")
             this.gui.redoButton.setAttribute("disabled", "true")
         } else {
@@ -295,7 +339,8 @@ export class SokobanApp {
             this.gui.redoButton.removeAttribute("disabled")
         }
 
-        if(this.moveHistory.getPlayedMoveCount() == 0) {
+        // Undo buttons enabled only if there is at least one played move.
+        if (!this.moveHistory.hasUndo) {
             this.gui.undoAllButton.setAttribute("disabled", "true")
             this.gui.undoButton.setAttribute("disabled", "true")
         } else {
@@ -303,31 +348,54 @@ export class SokobanApp {
             this.gui.undoButton.removeAttribute("disabled")
         }
 
+        // Puzzle solved handling
         if (this.board.isSolved() && this.moves > 0) {
-            // Only treat this as a new solution when the player solved the level manually.
-            if (!this.isRedoInProgress) {
-                this.gui.showLevelSolvedAnimation()
-                Sound.playLevelSolvedSound()
 
-                const verifyResult = this.lurdVerifier.verifyLURD(this.moveHistory.lurd)
-                if (verifyResult instanceof Solution) {
-                    const hasBeenAdded = this.addSolutionToLevel(verifyResult)
-                    if (hasBeenAdded) {
-                        this.gui.updateSnapshotList(verifyResult)
-                    }
-                }
+            // Only treat this as "played solution" if we are not in a redo/replay context.
+            if (!this.isRedoInProgress) {
+                // 1) Show animation + sound
+                this.gui.showPuzzleSolvedAnimation()
+                Sound.playPuzzleSolvedSound()
+
+                // 2) Automatically save the current solution (if it is valid and new)
+                this.autoSaveCurrentSolutionIfPuzzleSolved()
             }
         }
     }
 
     /**
+     * Automatically verifies and stores the current move history as a solution
+     * when the puzzle has just been solved through normal play.
+     */
+    private autoSaveCurrentSolutionIfPuzzleSolved(): void {
+        const lurd = this.moveHistory.lurd
+        if (!lurd || lurd.length === 0) {
+            return
+        }
+
+        const verified = this.lurdVerifier.verifyLURD(lurd)
+        if (!(verified instanceof Solution)) {
+            return
+        }
+
+        // Keine Meldung beim Auto-Speichern:
+        const hasBeenAdded = this.addSolutionToPuzzle(verified, false)
+        if (hasBeenAdded) {
+            this.gui.updateSnapshotList(verified)
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Low-level movement operations
+    // ---------------------------------------------------------------------
+
+    /**
      * Performs a move of the player to the given direction
      * and updates the GUI accordingly.
-     * @param direction
      */
-    doMove(direction: DIRECTION) {
-
-        this.selectedBoxPosition = NONE // a move by arrow key removes the box selection
+    doMove(direction: DIRECTION): void {
+        // A move by keyboard removes any box selection.
+        this.selectedBoxPosition = NONE
 
         const movementType = this.movePlayerToDirection(direction)
         SokobanApp.playSoundForMovementType(movementType)
@@ -352,25 +420,30 @@ export class SokobanApp {
 
     /**
      * Moves the player to the given direction if possible.
-     * This includes doing a push if necessary.
-     * If the move could be done true is returned, false otherwise.
+     * This includes pushing a box if necessary.
      *
-     * Performing a move includes updating the GUI and the move history.
-     *
-     * Parameter `updateGUI` specifies whether the GUI has to be updated
-     * for the performed move.
+     * If `recordHistory` is false, the move history is not modified
+     * (useful for undo/redo or loading snapshots).
      */
-    private movePlayerToDirection(direction: DIRECTION, updateGUI = true): MovementType {
+    private movePlayerToDirection(
+        direction: DIRECTION,
+        updateGUI: boolean = true,
+        recordHistory: boolean = true
+    ): MovementType {
 
         const currentPlayerPosition = this.board.playerPosition
-        const newPlayerPosition = this.board.getPlayerNeighborPosition(direction)
+        const newPlayerPosition     = this.board.getPlayerNeighborPosition(direction)
 
-        if(this.board.isAccessible(newPlayerPosition)) {     // player can simply walk to the new position
+        // Simple move (no box).
+        if (this.board.isAccessible(newPlayerPosition)) {
             this.board.playerPosition = newPlayerPosition
             this.moves++
-            this.moveHistory.addMove(Directions.getMoveCharForDirection(direction))
 
-            if(updateGUI) {
+            if (recordHistory) {
+                this.moveHistory.addMove(Directions.getMoveCharForDirection(direction))
+            }
+
+            if (updateGUI) {
                 this.gui.updateCanvasForPositions(currentPlayerPosition, newPlayerPosition)
                 this.updateMovesPushesInGUI()
             }
@@ -378,21 +451,27 @@ export class SokobanApp {
             return MovementType.MOVE
         }
 
-        // Check whether the player can enter the new position by pushing a box
-        if(this.board.isBox(newPlayerPosition)) {
+        // Push.
+        if (this.board.isBox(newPlayerPosition)) {
             const newBoxPosition = this.board.getNeighborPosition(newPlayerPosition, direction)
-            if(this.board.isAccessible(newBoxPosition)) {
+            if (this.board.isAccessible(newBoxPosition)) {
                 this.board.pushBox(newPlayerPosition, newBoxPosition)
                 this.board.playerPosition = newPlayerPosition
                 this.moves++
                 this.pushes++
-                this.moveHistory.addMove(Directions.getPushCharForDirection(direction))
 
-                if(updateGUI) {
+                if (recordHistory) {
+                    this.moveHistory.addMove(Directions.getPushCharForDirection(direction))
+                }
+
+                if (updateGUI) {
                     this.gui.updateCanvasForPositions(currentPlayerPosition, newPlayerPosition, newBoxPosition)
                     this.updateMovesPushesInGUI()
                 }
-                return this.board.isGoal(newBoxPosition) ? MovementType.PUSH_TO_GOAL : MovementType.PUSH
+
+                return this.board.isGoal(newBoxPosition)
+                    ? MovementType.PUSH_TO_GOAL
+                    : MovementType.PUSH
             }
         }
 
@@ -400,198 +479,268 @@ export class SokobanApp {
     }
 
     /**
-     * Moves the player to the given direction if possible performing an "undo".
-     * This includes doing a pull of a box if necessary.
-     * "undo" means: the moves and pushes metrics decrease by doing this movement.
+     * Moves the player to the given direction when performing an undo.
+     * This includes pulling a box if necessary.
      *
-     * The flag "withGUIUpdate" indicates whether the GUI is to be updated.
+     * "Undo" means moves/pushes metrics decrease accordingly.
      */
-    private movePlayerToDirectionUndo(direction: DIRECTION, doPull: boolean, withGUIUpdate = true): MovementType {
+    private movePlayerToDirectionUndo(
+        direction: DIRECTION,
+        doPull: boolean,
+        withGUIUpdate = true
+    ): MovementType {
 
         const currentPlayerPosition = this.board.playerPosition
-        const newPlayerPosition = this.board.getPlayerNeighborPosition(direction)
+        const newPlayerPosition     = this.board.getPlayerNeighborPosition(direction)
 
         this.board.playerPosition = newPlayerPosition
         this.moves--
 
-        const boxPosition = this.board.getNeighborPosition(currentPlayerPosition, Directions.getOpposite(direction))
-        if(doPull) {
+        const boxPosition = this.board.getNeighborPosition(
+            currentPlayerPosition,
+            Directions.getOpposite(direction)
+        )
+
+        if (doPull) {
             this.board.pushBox(boxPosition, currentPlayerPosition)
             this.pushes--
         }
 
-        // Note: the move history is already adjusted by the caller!
+        // Move history has already been adjusted by the caller.
 
-        if(withGUIUpdate) {
-            doPull ? this.gui.updateCanvasForPositions(boxPosition, currentPlayerPosition, newPlayerPosition) :
-                     this.gui.updateCanvasForPositions(currentPlayerPosition, newPlayerPosition)
+        if (withGUIUpdate) {
+            if (doPull) {
+                this.gui.updateCanvasForPositions(boxPosition, currentPlayerPosition, newPlayerPosition)
+            } else {
+                this.gui.updateCanvasForPositions(currentPlayerPosition, newPlayerPosition)
+            }
             this.updateMovesPushesInGUI()
         }
 
-        return doPull ? (this.board.isGoal(currentPlayerPosition) ? MovementType.PUSH_TO_GOAL : MovementType.PUSH)  :  MovementType.MOVE
+        if (!doPull) {
+            return MovementType.MOVE
+        }
+
+        return this.board.isGoal(currentPlayerPosition)
+            ? MovementType.PUSH_TO_GOAL
+            : MovementType.PUSH
     }
 
-    undoMove() {
+    // ---------------------------------------------------------------------
+    // Undo / Redo
+    // ---------------------------------------------------------------------
+
+    undoMove(): void {
         const moveChar = this.moveHistory.undoMove()
-
-        if(moveChar != null) {
-            const direction = Directions.getDirectionFromLURDChar(moveChar)
-            const oppositeDirection = Directions.getOpposite(direction)
-            this.movePlayerToDirectionUndo(oppositeDirection, Directions.isPushChar(moveChar))
-
-            Sound.playMoveSound()
-        }
-    }
-
-    redoMove() {
-        const nextMoveChar = this.moveHistory.getNextMoveLURDChar()
-        if(nextMoveChar != null) {
-            this.isRedoInProgress = true
-            let direction = Directions.getDirectionFromLURDChar(nextMoveChar)
-            this.doMove(direction)
-            this.isRedoInProgress = false
-        }
-    }
-
-    undoAllMoves() {
-        let moveChar = this.moveHistory.undoMove()
-        while(moveChar != null) {
-            const direction = Directions.getDirectionFromLURDChar(moveChar)
-            const oppositeDirection = Directions.getOpposite(direction)
-            this.movePlayerToDirectionUndo(oppositeDirection, Directions.isPushChar(moveChar), false)   // false -> without GUI update!
-            moveChar = this.moveHistory.undoMove()
+        if (moveChar == null) {
+            return
         }
 
-        // according to Sokoban YASC "undo all" plays no sound
+        const direction         = Directions.getDirectionFromLURDChar(moveChar)
+        const oppositeDirection = Directions.getOpposite(direction)
 
-        this.gui.updateCanvas()
-        this.updateMovesPushesInGUI()
+        this.movePlayerToDirectionUndo(oppositeDirection, Directions.isPushChar(moveChar))
+        Sound.playMoveSound()
     }
 
-    redoAllMoves() {
+    redoMove(): void {
+        const nextMoveChar = this.moveHistory.redoMove()
+        if (nextMoveChar == null) {
+            return
+        }
 
-        this.selectedBoxPosition = NONE // a move by arrow key removes the box selection
         this.isRedoInProgress = true
 
-        let doneMovementType = MovementType.NONE
+        const direction    = Directions.getDirectionFromLURDChar(nextMoveChar)
+        const movementType = this.movePlayerToDirection(direction, true, false) // recordHistory = false
 
-        let nextMoveChar = this.moveHistory.getNextMoveLURDChar()
-        while(nextMoveChar != null) {
-            let direction = Directions.getDirectionFromLURDChar(nextMoveChar)
-
-            const doneMovementType = this.movePlayerToDirection(direction)
-            nextMoveChar = this.moveHistory.getNextMoveLURDChar()
-        }
-
-        // According to Sokoban YASC play the sound for the last movement.
-        if(doneMovementType != MovementType.NONE) {
-            SokobanApp.playSoundForMovementType(doneMovementType)
+        if (movementType !== MovementType.NONE) {
+            SokobanApp.playSoundForMovementType(movementType)
         }
 
         this.isRedoInProgress = false
     }
 
-    doAction(action: Action) {
+    undoAllMoves(): void {
+        let moveChar = this.moveHistory.undoMove()
 
-        if(this.isPlayerCurrentlyMoving) {         // While the animation is running any action will
-            this.isPlayerCurrentlyMoving = false   // just stop the animation and do nothing else.
+        while (moveChar != null) {
+            const direction         = Directions.getDirectionFromLURDChar(moveChar)
+            const oppositeDirection = Directions.getOpposite(direction)
+
+            // false -> without GUI update; we update once at the end.
+            this.movePlayerToDirectionUndo(oppositeDirection, Directions.isPushChar(moveChar), false)
+
+            moveChar = this.moveHistory.undoMove()
+        }
+
+        // According to Sokoban YASC "undo all" plays no sound.
+        this.gui.updateCanvas()
+        this.updateMovesPushesInGUI()
+    }
+
+    redoAllMoves(): void {
+
+        this.selectedBoxPosition = NONE
+        this.isRedoInProgress    = true
+
+        let lastMovementType: MovementType = MovementType.NONE
+
+        let nextMoveChar = this.moveHistory.redoMove()
+        while (nextMoveChar != null) {
+
+            const direction    = Directions.getDirectionFromLURDChar(nextMoveChar)
+            const movementType = this.movePlayerToDirection(direction, true, false) // recordHistory = false
+
+            if (movementType !== MovementType.NONE) {
+                lastMovementType = movementType
+            }
+
+            nextMoveChar = this.moveHistory.redoMove()
+        }
+
+        // According to Sokoban YASC play the sound for the last movement.
+        if (lastMovementType !== MovementType.NONE) {
+            SokobanApp.playSoundForMovementType(lastMovementType)
+        }
+
+        this.isRedoInProgress = false
+    }
+
+    // ---------------------------------------------------------------------
+    // Action dispatch from GUI
+    // ---------------------------------------------------------------------
+
+    doAction(action: Action): void {
+
+        // While the animation is running, any action will just stop the animation.
+        if (this.isPlayerCurrentlyMoving) {
+            this.isPlayerCurrentlyMoving = false
             return
         }
 
-        if(action != Action.cellClicked) {      // when any other action than clicking a board position is fired, deselect all objets
+        // For any non-cell-click action, deselect player and box.
+        if (action !== Action.cellClicked) {
             this.deselectPlayerAndBox()
         }
 
-        if(this.board.isSolved()) {
+        // When the puzzle is solved, block further play actions.
+        if (this.board.isSolved()) {
             switch (action) {
                 case Action.moveLeft:
                 case Action.moveRight:
                 case Action.moveUp:
                 case Action.moveDown:
                 case Action.cellClicked:
-                    return  // no further play allowed
+                    return
             }
         }
 
-        switch(action) {
-            case Action.undoAll: this.undoAllMoves(); break
-            case Action.undo:    this.undoMove();     break
-            case Action.redo:    this.redoMove();     break
-            case Action.redoAll: this.redoAllMoves(); break
+        switch (action) {
+            case Action.undoAll: this.undoAllMoves();               break
+            case Action.undo:    this.undoMove();                   break
+            case Action.redo:    this.redoMove();                   break
+            case Action.redoAll: this.redoAllMoves();               break
 
-            case Action.moveLeft:  this.doMove(LEFT);  break
-            case Action.moveRight: this.doMove(RIGHT); break
-            case Action.moveUp:    this.doMove(UP);    break
-            case Action.moveDown:  this.doMove(DOWN);  break
+            case Action.moveLeft:  this.doMove(LEFT);               break
+            case Action.moveRight: this.doMove(RIGHT);              break
+            case Action.moveUp:    this.doMove(UP);                 break
+            case Action.moveDown:  this.doMove(DOWN);               break
 
-            case Action.cellClicked: this.cellClicked(this.gui.clickedPosition); break
+            case Action.cellClicked:
+                this.cellClicked(this.gui.clickedPosition)
+                break
 
-            case Action.copyMovesAsString: this.copyMovesToClipboard(this.moveHistory.lurd); break
-            case Action.pasteMovesFromClipboard: this.pasteMovesFromClipboard(); break
-            case Action.importLevelFromClipboard: this.importLevelFromClipboard(); break
-            case Action.copyLevelToClipboard: this.copyLevelToClipboard(); break
+            case Action.copyMovesAsString:
+                this.copyMovesToClipboard(this.moveHistory.lurd)
+                break
 
-            case Action.importLURDString: this.importLURDString(); break
+            case Action.pasteMovesFromClipboard:
+                this.pasteMovesFromClipboard()
+                break
 
-            case Action.saveSnapshot: this.saveCurrentSnapshot(); break
+            case Action.importPuzzleFromClipboard:
+                this.importPuzzleFromClipboard()
+                break
+
+            case Action.copyPuzzleToClipboard:
+                this.copyPuzzleToClipboard()
+                break
+
+            case Action.importLURDString:
+                this.importLURDString()
+                break
+
+            case Action.saveSnapshot:
+                this.saveCurrentSnapshot()
+                break
         }
     }
 
-    private deselectPlayerAndBox() {
-        if(this.selectedBoxPosition != NONE || this.isPlayerSelected) {
+    private deselectPlayerAndBox(): void {
+        if (this.selectedBoxPosition !== NONE || this.isPlayerSelected) {
             this.selectedBoxPosition = NONE
-            this.isPlayerSelected = false
+            this.isPlayerSelected    = false
             this.board.removeAllReachableMarkers()
-
             this.gui.updateCanvas()
         }
     }
 
-    /** Copies the given `lurd` string to the clipboard. */
-    copyMovesToClipboard(lurd: string) {
+    // ---------------------------------------------------------------------
+    // Clipboard operations (moves + puzzle)
+    // ---------------------------------------------------------------------
+
+    /** Copies the given LURD string to the clipboard. */
+    copyMovesToClipboard(lurd: string): void {
         Utilities.copyToClipboard(lurd)
-        Messages.showSuccessMessage('Copy successful', 'Moves have been copied to the clipboard')
+        Messages.showSuccessMessage("Copy successful", "Moves have been copied to the clipboard")
     }
 
-    /** Pastes the moves stored in the clipboard (as lurd string) to the game. */
-    private async pasteMovesFromClipboard() {
+    /** Pastes the moves stored in the clipboard (as LURD string) to the game. */
+    private async pasteMovesFromClipboard(): Promise<void> {
 
         const string = await Utilities.getStringFromClipboard()
-
-        if(string == null)
+        if (string == null) {
             return
+        }
 
         const trimmedString = string.trim()
-        this.selectedBoxPosition = NONE // remove any box selection
-        let successfulMoves = this.movePlayerAccordingToLURDStringWithoutAnimation(trimmedString)
+        this.selectedBoxPosition = NONE
+
+        const successfulMoves = this.movePlayerAccordingToLURDStringWithoutAnimation(trimmedString)
 
         if (successfulMoves > 0) {
-            Messages.showSuccessMessage('Paste successful', 'Moves successfully pasted: ' + successfulMoves)
+            Messages.showSuccessMessage("Paste successful", "Moves successfully pasted: " + successfulMoves)
         } else {
-            Messages.showErrorMessage('No moves pasted', 'No valid moves to paste found')
+            Messages.showErrorMessage("No moves pasted", "No valid moves to paste found")
         }
     }
 
     /**
-     * Moves the player on the board without showing animations according to the passed lurdString
-     * and returns the number of successfully done moves.
+     * Moves the player on the board without animation according to the given LURD string
+     * and returns the number of successfully executed moves.
+     *
+     * This method DOES record the moves in the history (normal play/paste).
      */
     private movePlayerAccordingToLURDStringWithoutAnimation(lurdString: string): number {
 
-        this.isPlayerCurrentlyMoving = true     // we change the board: no other action must be performed
+        this.isPlayerCurrentlyMoving = true
 
         let successfulMoves = 0
+
         for (const char of lurdString) {
 
             if (!Directions.isValidDirectionChar(char)) {
                 break
             }
 
-            const direction = Directions.getDirectionFromLURDChar(char)
+            const direction    = Directions.getDirectionFromLURDChar(char)
             const movementType = this.movePlayerToDirection(direction)
-            if (movementType == MovementType.NONE) {
+
+            if (movementType === MovementType.NONE) {
                 break
             }
+
             successfulMoves++
         }
 
@@ -600,114 +749,120 @@ export class SokobanApp {
         return successfulMoves
     }
 
-    /** Imports a level string from the clipboard to be played as new level. */
-    private async importLevelFromClipboard(): Promise<void> {
-
-        const string = await Utilities.getStringFromClipboard();
-        if (string == null) {
-            return;  // user has cancelled pasting the clipboard content
-        }
-
-        // Reuse the same logic for clipboard and file imports.
-        this.importLevelFromString(string);
-    }
-
-    /**
-     * Imports a level from a raw string (for example from the clipboard or a file)
-     * and sets it as the current playable level.
-     */
-    public importLevelFromString(rawLevelString: string): void {
-
-        const boardRows = rawLevelString.trim().split("\n");
-        const validBoardRows = boardRows.filter(LevelFormat.isValidBoardRow);
-        const validBoardRowsAsString = validBoardRows.join("\n");
-
-        const board = Board.createFromString(validBoardRowsAsString);    // returns a board or an error string
-        if (typeof board === "string") {
-            // Show the "invalid board" modal with the detected rows and error message
-            $("#boardAsString").html(validBoardRows.join("</br>"));
-            $("#boardErrorMessage").html(board);
-
-            ($('#showInvalidBoard') as any).modal({
-                onShow: () => {
-                    GUI.isModalDialogShown = true;
-                },
-                onHidden: () => {
-                    GUI.isModalDialogShown = false;
-                }
-            }).modal("show");
-
-            return;
-        }
-
-        const level = new Level(board);
-        level.title = "Imported level";
-
-        this.setLevelForPlaying(level);
-    }
-
-    /**
-     * Stores the current level in the clipboard
-     */
-    private copyLevelToClipboard() {
-        Utilities.copyToClipboard(this.board.getBoardAsString())
-        Messages.showSuccessMessage('Copy successful', 'Level have been copied to the clipboard')
-    }
-
-    private async importLURDString() {
+    /** Imports a puzzle string from the clipboard to be played as a new puzzle. */
+    private async importPuzzleFromClipboard(): Promise<void> {
 
         const string = await Utilities.getStringFromClipboard()
-        if(string == null) {
-            return  // user has cancelled pasting the clipboard content
+        if (string == null) {
+            return
+        }
+
+        this.importPuzzleFromString(string)
+    }
+
+    /**
+     * Imports a puzzle from a raw string (clipboard or file)
+     * and sets it as the current playable puzzle.
+     */
+    public importPuzzleFromString(rawPuzzleString: string): void {
+
+        const boardRows      = rawPuzzleString.trim().split("\n")
+        const validBoardRows = boardRows.filter(PuzzleFormat.isValidBoardRow)
+        const boardAsString  = validBoardRows.join("\n")
+
+        const board = Board.createFromString(boardAsString)
+        if (typeof board === "string") {
+            // Show "invalid board" modal.
+            $("#boardAsString").html(validBoardRows.join("</br>"))
+            $("#boardErrorMessage").html(board);
+
+            ($("#showInvalidBoard") as any).modal({
+                onShow:   () => { GUI.isModalDialogShown = true },
+                onHidden: () => { GUI.isModalDialogShown = false }
+            }).modal("show")
+
+            return
+        }
+
+        const puzzle = new Puzzle(board)
+        puzzle.title = "Imported puzzle"
+
+        this.setPuzzleForPlaying(puzzle)
+    }
+
+    /** Stores the current puzzle in the clipboard. */
+    private copyPuzzleToClipboard(): void {
+        Utilities.copyToClipboard(this.board.getBoardAsString())
+        Messages.showSuccessMessage("Copy successful", "Puzzle has been copied to the clipboard")
+    }
+
+    // ---------------------------------------------------------------------
+    // Importing LURD as snapshot / solution
+    // ---------------------------------------------------------------------
+
+    private async importLURDString(): Promise<void> {
+
+        const string = await Utilities.getStringFromClipboard()
+        if (string == null) {
+            return
         }
 
         const trimmedString = string.trim()
+        const verifyResult  = this.lurdVerifier.verifyLURD(trimmedString)
 
-        const verifyResult= this.lurdVerifier.verifyLURD(trimmedString)
-
-        if(verifyResult == null) {
+        if (verifyResult == null) {
             this.showMessageInvalidLURDString(trimmedString)
             return
         }
 
-        if(verifyResult instanceof Solution) {
-            const hasBeenAdded = this.addSolutionToLevel(verifyResult)
-            if(hasBeenAdded) {
+        if (verifyResult instanceof Solution) {
+            const hasBeenAdded = this.addSolutionToPuzzle(verifyResult)
+            if (hasBeenAdded) {
                 this.gui.updateSnapshotList(verifyResult)
             }
         } else {
-            const hasBeenAdded = this.addSnapshotToLevel(verifyResult)
-            if(hasBeenAdded) {
+            const hasBeenAdded = this.addSnapshotToPuzzle(verifyResult)
+            if (hasBeenAdded) {
                 this.gui.updateSnapshotList(verifyResult)
             }
         }
     }
 
-    /** Saves the current move history as a snapshot or solution and adds it to the level and GUI. */
+    // ---------------------------------------------------------------------
+    // Saving current state as snapshot / solution
+    // ---------------------------------------------------------------------
+
+    /** Saves the current move history as a snapshot or solution and adds it to the puzzle and GUI. */
     private saveCurrentSnapshot(): void {
 
         const lurd = this.moveHistory.lurd
         if (!lurd || lurd.length === 0) {
-            Messages.showWarningMessage("Nothing to save", "There are no moves yet, so no snapshot was saved.")
+            Messages.showWarningMessage(
+                "Nothing to save",
+                "There are no moves yet, so no snapshot was saved."
+            )
             return
         }
 
         // Let the LURDVerifier compute normalized LURD and metrics.
         const verified = this.lurdVerifier.verifyLURD(lurd)
         if (verified == null) {
-            Messages.showErrorMessage("Invalid moves", "The current move sequence is not valid for this level.")
+            Messages.showErrorMessage(
+                "Invalid moves",
+                "The current move sequence is not valid for this puzzle."
+            )
             return
         }
 
         if (verified instanceof Solution) {
-            const hasBeenAdded = this.addSolutionToLevel(verified)
+            const hasBeenAdded = this.addSolutionToPuzzle(verified)
             if (hasBeenAdded) {
                 this.gui.updateSnapshotList(verified)
             }
         } else {
-            verified.name = "Snapshot " + (this.level.snapshots.size + 1)
+            verified.name = "Snapshot " + (this.puzzle.snapshots.size + 1)
 
-            const hasBeenAdded = this.addSnapshotToLevel(verified)
+            const hasBeenAdded = this.addSnapshotToPuzzle(verified)
             if (hasBeenAdded) {
                 this.gui.updateSnapshotList(verified)
             }
@@ -715,126 +870,165 @@ export class SokobanApp {
     }
 
     /**
-     * Adds the passed solution to the level and displays a message to the user.
-     * Returns true if adding the solution has been successful, false if the
-     * solution is a duplicate.
-     *
-     * @param solution  the solution to be added
+     * Adds the passed solution to the puzzle and shows a message (optional).
+     * Returns true if adding the solution has been successful, false if it is a duplicate.
      */
-    private addSolutionToLevel(solution: Solution): boolean {
+    private addSolutionToPuzzle(solution: Solution, showMessages: boolean = true): boolean {
 
-        const hasBeenAdded = this.level.addSolution(solution)
+        const hasBeenAdded = this.puzzle.addSolution(solution)
 
         if (hasBeenAdded) {
-            Messages.showSuccessMessage("Solution added", "The solution has been added to the level")
+            if (showMessages) {
+                Messages.showSuccessMessage("Solution added", "The solution has been added to the puzzle")
+            }
 
-            // Store solution per board, so identical boards share solutions.
-            DataStorage.storeSolution(this.level.board, solution)
+            DataStorage.storeSolution(this.puzzle.board, solution)
                 .catch(error => console.error("Failed to store solution", error))
-        } else {
-            Messages.showWarningMessage("Duplicate solution", "The level already contains the solution.")
+        } else if (showMessages) {
+            Messages.showWarningMessage(
+                "Duplicate solution",
+                "The puzzle already contains this solution."
+            )
         }
 
         return hasBeenAdded
     }
 
     /**
-     * Adds the passed snapshot to the level and displays a message to the user.
-     * Returns true if adding the snapshot has been successful, false if the
-     * snapshot is a duplicate.
-     *
-     * @param snapshot  the snapshot to be added
+     * Adds the passed snapshot to the puzzle and shows a message (optional).
+     * Returns true if adding the snapshot has been successful, false if it is a duplicate.
      */
-    private addSnapshotToLevel(snapshot: Snapshot): boolean {
+    private addSnapshotToPuzzle(snapshot: Snapshot, showMessages: boolean = true): boolean {
 
-        const hasBeenAdded = this.level.addSnapshot(snapshot)
+        const hasBeenAdded = this.puzzle.addSnapshot(snapshot)
 
         if (hasBeenAdded) {
-            Messages.showSuccessMessage("Snapshot added", "The snapshot has been added to the level")
+            if (showMessages) {
+                Messages.showSuccessMessage("Snapshot added", "The snapshot has been added to the puzzle")
+            }
 
-            // Store snapshot per board, so identical boards share snapshots.
-            DataStorage.storeSnapshot(this.level.board, snapshot)
-                .catch(error => console.error("Failed to store snapshot", error))
-
-            return true
-        } else {
-            Messages.showWarningMessage("Duplicate snapshot", "The level already contains the snapshot.")
-            return false
+            DataStorage.storeSnapshot(this.puzzle.board, snapshot)
+                .catch(error => console.error("Failed to store snapshot/solution", error))
+        } else if (showMessages) {
+            Messages.showWarningMessage(
+                "Duplicate snapshot",
+                "The puzzle already contains this snapshot."
+            )
         }
+
+        return hasBeenAdded
     }
 
-    /** Sets the name of the currently selected level collection. */
-    setCurrentCollectionName(collectionName: string): void {
-        this.currentCollectionName = collectionName
+    private showMessageInvalidLURDString(lurdString: string): void {
+        Messages.showErrorMessage(
+            "Invalid LURD string",
+            "The imported LURD string is not valid for this puzzle: " + lurdString
+        )
     }
 
-    /** Returns the name of the currently selected level collection. */
-    getCurrentCollectionName(): string {
-        return this.currentCollectionName
-    }
+    // ---------------------------------------------------------------------
+    // Snapshots / Solutions: load + delete
+    // ---------------------------------------------------------------------
 
-    private showMessageInvalidLURDString(lurdString: string) {
-        Messages.showErrorMessage('Invalid lurd string', "The imported lurd string isn't valid for the level: " + lurdString)
-    }
+    /**
+     * Applies the given snapshot/solution to the board and synchronizes
+     * the move history so undo/redo works correctly.
+     *
+     * The snapshot LURD can contain a '*' marker:
+     *   donePart * undonePart
+     * The board is set to the state after donePart, and the history is
+     * set to (donePart + undonePart) with the cursor at donePart.length.
+     */
+    setSnapshot(snapshot: Snapshot): void {
 
-    /** Moves the player according to the lurd of the passed snapshot or solution. */
-    setSnapshot(snapshot: Snapshot) {
-        // Mark this as a replay so no new solutions are recorded while applying the snapshot.
+        // Suppress "puzzle solved" animation and auto-saving during loading.
         this.isRedoInProgress = true
 
+        // 1) Reset the current board state via undo all.
         this.undoAllMoves()
-        const successfulMoves = this.movePlayerAccordingToLURDStringWithoutAnimation(snapshot.lurd)
+
+        // 2) Split snapshot LURD into done and undone part.
+        const raw       = snapshot.lurd
+        const starIndex = raw.indexOf("*")
+
+        const donePart   = starIndex >= 0 ? raw.substring(0, starIndex) : raw
+        const undonePart = starIndex >= 0 ? raw.substring(starIndex + 1) : ""
+
+        // 3) Set full history (done + undone) with the cursor at the end of the done part.
+        this.moveHistory.setHistory(donePart + undonePart, donePart.length)
+
+        // 4) Replay the done part on the board WITHOUT recording history again.
+        this.isPlayerCurrentlyMoving = true
+        this.moves  = 0
+        this.pushes = 0
+
+        for (const char of donePart) {
+            if (!Directions.isValidDirectionChar(char)) {
+                break
+            }
+            const direction    = Directions.getDirectionFromLURDChar(char)
+            const movementType = this.movePlayerToDirection(direction, false, false) // no GUI update, no history
+
+            if (movementType === MovementType.NONE) {
+                break
+            }
+        }
+
+        this.isPlayerCurrentlyMoving = false
+
+        // 5) Update GUI once at the end.
+        this.gui.updateCanvas()
+        this.updateMovesPushesInGUI()
 
         this.isRedoInProgress = false
 
-        if (successfulMoves > 0) {
+        // 6) Feedback message.
+        if (donePart.length > 0 || undonePart.length > 0) {
             if (snapshot instanceof Solution) {
                 Messages.showSuccessMessage(
                     "Solution set on board",
-                    "The solution has been set on the board."
+                    "The saved solution state has been set on the board."
                 )
             } else {
                 Messages.showSuccessMessage(
                     "Snapshot set on board",
-                    "The snapshot has been set on the board."
+                    "The saved position has been set on the board."
                 )
             }
         }
     }
 
-    /** Deletes the given snapshot or solution from the level, storage and GUI. */
+    /** Deletes the given snapshot or solution from the puzzle, storage and GUI. */
     deleteSnapshot(snapshot: Snapshot): void {
         let removed = false
 
         if (snapshot instanceof Solution) {
-            removed = this.level.solutions.delete(snapshot.lurd)
+            removed = this.puzzle.solutions.delete(snapshot.lurd)
         } else {
-            removed = this.level.snapshots.delete(snapshot.lurd)
+            removed = this.puzzle.snapshots.delete(snapshot.lurd)
         }
 
         if (removed) {
-            // Remove from persistent storage.
-            DataStorage.deleteSnapshot(this.level.board, snapshot)
+            DataStorage.deleteSnapshot(this.puzzle.board, snapshot)
                 .catch(error => console.error("Failed to delete snapshot/solution", error))
 
-            // Remove from GUI list.
             this.gui.removeSnapshotFromList(snapshot)
 
             if (snapshot instanceof Solution) {
                 Messages.showSuccessMessage(
                     "Solution deleted",
-                    "The solution has been removed from this level."
+                    "The solution has been removed from this puzzle."
                 )
             } else {
                 Messages.showSuccessMessage(
                     "Snapshot deleted",
-                    "The snapshot has been removed from this level."
+                    "The snapshot has been removed from this puzzle."
                 )
             }
         } else {
             Messages.showWarningMessage(
                 "Not found",
-                "The snapshot/solution was not found for the current level."
+                "The snapshot/solution was not found for the current puzzle."
             )
         }
     }
