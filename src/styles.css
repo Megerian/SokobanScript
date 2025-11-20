@@ -221,6 +221,16 @@ label {
     opacity: 0.9;
 }
 
+/* Special styling for best solutions (top of list) */
+#snapshotList .item.solution.best-solution {
+    background-color: #E8F8E9 !important;   /* soft green */
+    border-left-color: #21BA45;            /* Semantic UI green */
+}
+
+#snapshotList .item.solution.best-solution .header {
+    font-weight: 700;
+}
+
 /* ===================================================================== */
 /*  Sidebar action buttons (Save snapshot, Import, Delete mode)          */
 /* ===================================================================== */

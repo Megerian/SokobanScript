@@ -1102,8 +1102,64 @@ export class GUI {
         items.forEach(item => item.remove())
     }
 
-    /** Adds the given snapshot or solution to the sidebar list. */
-    updateSnapshotList(snapshot: Snapshot) {
+    /**
+     * Rebuilds the sidebar list from ordered solutions and snapshots.
+     * The "best" solutions are already placed at the beginning of the
+     * solutions array by the caller (SokobanApp).
+     */
+    renderSnapshotList(
+        orderedSolutions: Solution[],
+        snapshots: Snapshot[],
+        bestByPush: Snapshot | null,
+        bestByMove: Snapshot | null
+    ): void {
+
+        this.clearSnapshotList()
+
+        const isBestPush = (s: Snapshot) =>
+            bestByPush != null && s.uniqueID === bestByPush.uniqueID
+        const isBestMove = (s: Snapshot) =>
+            bestByMove != null && s.uniqueID === bestByMove.uniqueID
+
+        // 1) All solutions first (with possible highlighting)
+        for (const solution of orderedSolutions) {
+            this.addSnapshotListItem(
+                solution,
+                isBestPush(solution),
+                isBestMove(solution)
+            )
+        }
+
+        // 2) Then all snapshots
+        for (const snapshot of snapshots) {
+            this.addSnapshotListItem(snapshot, false, false)
+        }
+
+        // Apply current filters (Solutions/Snapshots toggles)
+        this.applySnapshotFilters()
+    }
+
+    /**
+     * Backwards compatible wrapper – simply appends one entry without
+     * marking "best" solutions. Still used in some places.
+     */
+    updateSnapshotList(snapshot: Snapshot): void {
+        this.addSnapshotListItem(snapshot, false, false)
+        this.applySnapshotFilters()
+    }
+
+    /**
+     * Creates a single DOM list item for the given snapshot/solution
+     * and appends it to the sidebar list.
+     *
+     * @param isBestByPush  true if this snapshot is the best solution by pushes
+     * @param isBestByMove  true if this snapshot is the best solution by moves
+     */
+    private addSnapshotListItem(
+        snapshot: Snapshot,
+        isBestByPush: boolean,
+        isBestByMove: boolean
+    ): void {
 
         const isSolution = snapshot instanceof Solution
         const cssClass   = isSolution ? "solution" : "snapshot"
@@ -1112,16 +1168,38 @@ export class GUI {
         snapshotItem.classList.add("item", cssClass)
         snapshotItem.id = "snapshot" + snapshot.uniqueID
 
+        if (isSolution && (isBestByPush || isBestByMove)) {
+            snapshotItem.classList.add("best-solution")
+        }
+
         // Fomantic-style item: icon + content (header + description)
         const icon = document.createElement("i")
         icon.classList.add(isSolution ? "star" : "camera", "icon")
+
+        // Highlight icon for best solutions
+        if (isSolution && (isBestByPush || isBestByMove)) {
+            icon.classList.add("yellow")
+        }
 
         const contentDiv = document.createElement("div")
         contentDiv.classList.add("content")
 
         const headerDiv = document.createElement("div")
         headerDiv.classList.add("header")
-        headerDiv.innerText = isSolution ? "Solution" : "Snapshot"
+
+        if (isSolution) {
+            if (isBestByPush && isBestByMove) {
+                headerDiv.innerText = "Best solution (moves & pushes)"
+            } else if (isBestByPush) {
+                headerDiv.innerText = "Best solution (pushes)"
+            } else if (isBestByMove) {
+                headerDiv.innerText = "Best solution (moves)"
+            } else {
+                headerDiv.innerText = "Solution"
+            }
+        } else {
+            headerDiv.innerText = "Snapshot"
+        }
 
         const descriptionDiv = document.createElement("div")
         descriptionDiv.classList.add("description")
@@ -1161,8 +1239,6 @@ export class GUI {
         this.snapshotList.appendChild(snapshotItem)
 
         ;(($("#" + snapshotItem.id) as any)).transition("jiggle", "0.5s")
-
-        this.applySnapshotFilters()
     }
 
     /** Removes the given snapshot/solution item from the sidebar list. */

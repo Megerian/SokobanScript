@@ -106,31 +106,22 @@ export class SokobanApp {
         // Clear and repopulate the snapshot/solution list.
         this.gui.clearSnapshotList()
 
-        // 1) Show snapshots/solutions that are already part of the puzzle (e.g. from file).
-        for (const solution of this.puzzle.solutions.values()) {
-            this.gui.updateSnapshotList(solution)
-        }
-        for (const snapshot of this.puzzle.snapshots.values()) {
-            this.gui.updateSnapshotList(snapshot)
-        }
+        // 1) Built-in solutions/snapshots that are already part of the puzzle.
+        this.refreshSnapshotListInGUI()
 
         // 2) Load stored snapshots/solutions for this board (identical boards share data).
         DataStorage.loadSnapshotsAndSolutions(this.puzzle.board)
             .then(stored => {
                 stored.forEach(snap => {
                     if (snap instanceof Solution) {
-                        // Keine Meldungen beim Laden aus Storage:
-                        const added = this.addSolutionToPuzzle(snap, false)
-                        if (added) {
-                            this.gui.updateSnapshotList(snap)
-                        }
+                        this.addSolutionToPuzzle(snap, false)
                     } else {
-                        const added = this.addSnapshotToPuzzle(snap, false)
-                        if (added) {
-                            this.gui.updateSnapshotList(snap)
-                        }
+                        this.addSnapshotToPuzzle(snap, false)
                     }
                 })
+
+                // Rebuild list after all stored items have been added
+                this.refreshSnapshotListInGUI()
             })
             .catch(error => console.error("Failed to load snapshots/solutions", error))
     }
@@ -378,10 +369,9 @@ export class SokobanApp {
             return
         }
 
-        // Keine Meldung beim Auto-Speichern:
         const hasBeenAdded = this.addSolutionToPuzzle(verified, false)
         if (hasBeenAdded) {
-            this.gui.updateSnapshotList(verified)
+            this.refreshSnapshotListInGUI()
         }
     }
 
@@ -818,12 +808,12 @@ export class SokobanApp {
         if (verifyResult instanceof Solution) {
             const hasBeenAdded = this.addSolutionToPuzzle(verifyResult)
             if (hasBeenAdded) {
-                this.gui.updateSnapshotList(verifyResult)
+                this.refreshSnapshotListInGUI()
             }
         } else {
             const hasBeenAdded = this.addSnapshotToPuzzle(verifyResult)
             if (hasBeenAdded) {
-                this.gui.updateSnapshotList(verifyResult)
+                this.refreshSnapshotListInGUI()
             }
         }
     }
@@ -857,14 +847,14 @@ export class SokobanApp {
         if (verified instanceof Solution) {
             const hasBeenAdded = this.addSolutionToPuzzle(verified)
             if (hasBeenAdded) {
-                this.gui.updateSnapshotList(verified)
+                this.refreshSnapshotListInGUI()
             }
         } else {
             verified.name = "Snapshot " + (this.puzzle.snapshots.size + 1)
 
             const hasBeenAdded = this.addSnapshotToPuzzle(verified)
             if (hasBeenAdded) {
-                this.gui.updateSnapshotList(verified)
+                this.refreshSnapshotListInGUI()
             }
         }
     }
@@ -917,6 +907,57 @@ export class SokobanApp {
         }
 
         return hasBeenAdded
+    }
+
+    /**
+     * Rebuilds the snapshot/solution sidebar based on the current puzzle data.
+     * The best solution by pushes and by moves is placed at the very top.
+     */
+    private refreshSnapshotListInGUI(): void {
+
+        if (!this.puzzle) {
+            return
+        }
+
+        const solutions: Solution[] = Array.from(this.puzzle.solutions.values())
+        const snapshots: Snapshot[] = Array.from(this.puzzle.snapshots.values())
+
+        let bestByPush: Solution | null = null
+        let bestByMove: Solution | null = null
+
+        if (solutions.length > 0) {
+            const sortedByPush = [...solutions].sort(Snapshot.compareByPushQuality)
+            const sortedByMove = [...solutions].sort(Snapshot.compareByMoveQuality)
+
+            bestByPush = sortedByPush[0]
+            bestByMove = sortedByMove[0]
+        }
+
+        // Build ordered list: best-by-push, best-by-move (if different), then the rest
+        const orderedSolutions: Solution[] = []
+        const seenIds = new Set<number>()
+
+        const addIfNotSeen = (s: Solution | null) => {
+            if (!s) return
+            if (seenIds.has(s.uniqueID)) return
+            seenIds.add(s.uniqueID)
+            orderedSolutions.push(s)
+        }
+
+        addIfNotSeen(bestByPush)
+        addIfNotSeen(bestByMove)
+
+        const remaining = solutions.filter(s => !seenIds.has(s.uniqueID))
+        // You can change this to a different default ordering if you like
+        remaining.sort((a, b) => a.createdDate - b.createdDate)
+        orderedSolutions.push(...remaining)
+
+        this.gui.renderSnapshotList(
+            orderedSolutions,
+            snapshots,
+            bestByPush,
+            bestByMove
+        )
     }
 
     private showMessageInvalidLURDString(lurdString: string): void {
@@ -1012,7 +1053,8 @@ export class SokobanApp {
             DataStorage.deleteSnapshot(this.puzzle.board, snapshot)
                 .catch(error => console.error("Failed to delete snapshot/solution", error))
 
-            this.gui.removeSnapshotFromList(snapshot)
+            // Rebuild the list so that "best" solution markers are updated
+            this.refreshSnapshotListInGUI()
 
             if (snapshot instanceof Solution) {
                 Messages.showSuccessMessage(
