@@ -31,17 +31,6 @@ interface StoredSubmittedSolutionDTO {
 
 export class DataStorage {
 
-    static exportDatabaseContentToFile() {
-        const myJson = JSON.stringify("test")
-        const element = document.createElement("a")
-        element.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(myJson))
-        element.setAttribute("download", "Sokoban data.json")
-        element.style.display = "none"
-        document.body.appendChild(element)
-        element.click()
-        document.body.removeChild(element)
-    }
-
     /**
      * Configure the localforage storage.
      */

@@ -39,14 +39,6 @@ export class Puzzle {
         this.boxCount = board.boxCount
     }
 
-    get hasSolutions(): boolean {
-        return this.solutions.size > 0
-    }
-
-    get hasSnapshots(): boolean {
-        return this.snapshots.size > 0
-    }
-
     /**
      * Adds the given solution to this puzzle.
      *

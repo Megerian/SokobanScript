@@ -22,7 +22,7 @@ export class Settings {
         backgroundColor:                     "#EBEDEF",
         backgroundImageName:                 "",
         showSnapshotListFlag:                true,
-        // Letslogic
+        showRulerFlag:                       false,
         letslogicApiKey:                     ""
     }
 
@@ -42,6 +42,7 @@ export class Settings {
     private static backgroundColor_ = "#EBEDEF"                // Background color of the page
     private static backgroundImageName_ = ""                   // File name of background image or empty string for plain color
     private static showSnapshotListFlag_ = true                // Whether the snapshot/solution sidebar is visible
+    private static showRulerFlag_ = false                      // Whether the coordinate ruler (A/B/C, 1/2/3) is visible
     private static lastPlayedCollectionName_ = ""              // Name of the last played collection
     private static lastPlayedPuzzleNumber_ = 1                 // Number of the last played puzzle in the last played collection
     private static letslogicApiKey_ = ""                       // API key used to submit solutions to Letslogic
@@ -181,6 +182,20 @@ export class Settings {
     }
 
     // ---------------------------------------------------------------------
+    // Ruler visibility
+    // ---------------------------------------------------------------------
+
+    /** Whether the coordinate ruler (A/B/C, 1/2/3) is visible */
+    static get showRulerFlag(): boolean {
+        return this.showRulerFlag_
+    }
+
+    static set showRulerFlag(showRulerFlag: boolean) {
+        Settings.showRulerFlag_ = showRulerFlag
+        localforage.setItem("showRulerFlag", showRulerFlag).catch(err => console.log(err))
+    }
+
+    // ---------------------------------------------------------------------
     // Last played collection / puzzle
     // ---------------------------------------------------------------------
 
@@ -268,6 +283,11 @@ export class Settings {
         Settings.showSnapshotListFlag_ =
             (await localforage.getItem<boolean>("showSnapshotListFlag")) ??
             Settings.DEFAULTS.showSnapshotListFlag
+
+        // Ruler flag
+        Settings.showRulerFlag_ =
+            (await localforage.getItem<boolean>("showRulerFlag")) ??
+            Settings.DEFAULTS.showRulerFlag
 
         Settings.lastPlayedCollectionName_ =
             (await localforage.getItem<string>("lastPlayedCollection")) ??

@@ -284,6 +284,16 @@
                             <label for="hideWalls">Hide walls</label>
                         </div>
                     </div>
+
+                    <!-- Ruler toggle -->
+                    <div class="item">
+                        <i class="ruler horizontal icon"></i>
+                        <div class="ui checkbox">
+                            <input type="checkbox" id="showRuler">
+                            <label for="showRuler">Show ruler (A/B/C, 1/2/3)</label>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -465,7 +475,17 @@
 
             <!-- Canvas + solved overlay -->
             <div id="canvasDIV">
-                <canvas id="canvas"></canvas>
+
+                <div id="boardWithRulers">
+                    <!-- oberer Ruler (Spalten A, B, C, …) -->
+                    <div id="boardRulerTop"></div>
+
+                    <!-- linker Ruler (Zeilen 1, 2, 3, …) + Canvas -->
+                    <div id="boardRulerLeftAndCanvas">
+                        <div id="boardRulerLeft"></div>
+                        <canvas id="canvas"></canvas>
+                    </div>
+                </div>
 
                 <div id="puzzleSolvedDiv" style="visibility: hidden">
                     <div class="ui dimmer active dot">
@@ -481,6 +501,7 @@
                     Status: <span id="statusText"></span>
                 </label>
             </div>
+
         </div>
     </div>
 

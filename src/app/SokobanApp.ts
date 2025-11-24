@@ -460,7 +460,6 @@ export class SokobanApp {
             this.board.playerPosition = newPlayerPosition
             this.moves++
 
-
             if (recordHistory) {
                 this.moveHistory.addMove(Directions.getMoveCharForDirection(direction))
             }
@@ -809,7 +808,6 @@ export class SokobanApp {
 
             if (puzzles && puzzles.length > 0) {
                 // If multiple puzzles are present, take the first one.
-                // (Could be extended later to choose by board or index.)
                 const puzzle = puzzles[0]
                 this.setPuzzleForPlaying(puzzle)
                 return
@@ -841,10 +839,93 @@ export class SokobanApp {
         this.setPuzzleForPlaying(puzzle)
     }
 
-    /** Stores the current puzzle in the clipboard. */
+    /**
+     * Formats a LURD string into multiple lines for export.
+     */
+    private formatLurdForExport(lurd: string, maxLineLength: number = 80): string {
+        const parts: string[] = []
+
+        for (let i = 0; i < lurd.length; i += maxLineLength) {
+            parts.push(lurd.substring(i, i + maxLineLength))
+        }
+
+        return parts.join("\n")
+    }
+
+    /**
+     * Stores the current puzzle (board, title, optional ID, solutions and snapshots)
+     * in the clipboard in a textual export format.
+     *
+     * Format:
+     *
+     * <board>
+     *
+     * Title: <puzzle title>
+     * ID: <letslogic ID>     (optional)
+     *
+     * Solution <moves>/<pushes>
+     * <solution LURD>
+     *
+     * ...
+     *
+     * Snapshot <moves>/<pushes>
+     * <snapshot LURD>
+     *
+     * ...
+     */
     private copyPuzzleToClipboard(): void {
-        Utilities.copyToClipboard(this.board.getBoardAsString())
-        Messages.showSuccessMessage("Copy successful", "Puzzle has been copied to the clipboard")
+
+        // 1) Board
+        const boardText = this.board.getBoardAsString().replace(/\s+$/, "")
+
+        const lines: string[] = []
+        lines.push(boardText)
+        lines.push("") // empty line between board and metadata
+
+        // 2) Title and optional Letslogic ID
+        const title = this.puzzle.title || "Untitled puzzle"
+        lines.push(`Title: ${title}`)
+
+        // Adjust the property name for the Letslogic ID as needed in your Puzzle implementation.
+        if (this.puzzle.letsLogicID != NONE) {
+            lines.push(`ID: ${this.puzzle.letsLogicID}`)
+        }
+
+        lines.push("") // empty line before solutions / snapshots
+
+        // 3) Solutions and snapshots
+        const solutions = Array.from(this.puzzle.solutions.values())
+        const snapshots = Array.from(this.puzzle.snapshots.values())
+
+        solutions.sort((a, b) => a.createdDate - b.createdDate)
+        snapshots.sort((a, b) => a.createdDate - b.createdDate)
+
+        for (const solution of solutions) {
+            lines.push(`Solution ${solution.moveCount}/${solution.pushCount}`)
+            lines.push(this.formatLurdForExport(solution.lurd))
+            lines.push("") // empty line after each solution
+        }
+
+        if (snapshots.length > 0 && solutions.length > 0) {
+            if (lines[lines.length - 1] !== "") {
+                lines.push("")
+            }
+        }
+
+        for (const snapshot of snapshots) {
+            lines.push(`Snapshot ${snapshot.moveCount}/${snapshot.pushCount}`)
+            lines.push(this.formatLurdForExport(snapshot.lurd))
+            lines.push("") // empty line after each snapshot
+        }
+
+        // Join and ensure a single trailing newline.
+        const exportText = lines.join("\n").replace(/\s+$/, "") + "\n"
+
+        Utilities.copyToClipboard(exportText)
+        Messages.showSuccessMessage(
+            "Copy successful",
+            "Puzzle, solutions and snapshots have been copied to the clipboard."
+        )
     }
 
     // ---------------------------------------------------------------------
@@ -1052,9 +1133,9 @@ export class SokobanApp {
         const hasBeenAdded = this.puzzle.addSolution(solution)
 
         if (hasBeenAdded) {
-            if (showMessages) {
-                Messages.showSuccessMessage("Solution added", "The solution has been added to the puzzle")
-            }
+            // if (showMessages) {              // the added solution is shown in the GUI already, hence no need to show a message
+            //     Messages.showSuccessMessage("Solution added", "The solution has been added to the puzzle")
+            // }
 
             if (persistToStorage) {
                 DataStorage.storeSolution(this.puzzle.board, solution)
@@ -1084,9 +1165,9 @@ export class SokobanApp {
         const hasBeenAdded = this.puzzle.addSnapshot(snapshot)
 
         if (hasBeenAdded) {
-            if (showMessages) {
-                Messages.showSuccessMessage("Snapshot added", "The snapshot has been added to the puzzle")
-            }
+            // if (showMessages) {          // the added snapshot is shown in the GUI already, hence no need to show a message
+            //     Messages.showSuccessMessage("Snapshot added", "The snapshot has been added to the puzzle")
+            // }
 
             if (persistToStorage) {
                 DataStorage.storeSnapshot(this.puzzle.board, snapshot)
@@ -1246,18 +1327,6 @@ export class SokobanApp {
 
             // Rebuild the list so that "best" solution markers are updated.
             this.refreshSnapshotListInGUI()
-
-            if (snapshot instanceof Solution) {
-                Messages.showSuccessMessage(
-                    "Solution deleted",
-                    "The solution has been removed from this puzzle."
-                )
-            } else {
-                Messages.showSuccessMessage(
-                    "Snapshot deleted",
-                    "The snapshot has been removed from this puzzle."
-                )
-            }
         } else {
             Messages.showWarningMessage(
                 "Not found",

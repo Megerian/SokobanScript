@@ -69,20 +69,6 @@ export class SnapshotSidebarView {
         this.applySnapshotFilters()
     }
 
-    /** Backwards compatible helper to append a single snapshot/solution. */
-    appendSnapshot(snapshot: Snapshot): void {
-        this.addSnapshotListItem(snapshot, false, false)
-        this.applySnapshotFilters()
-    }
-
-    /** Removes the given snapshot/solution item from the sidebar list. */
-    removeSnapshot(snapshot: Snapshot): void {
-        const item = document.getElementById("snapshot" + snapshot.uniqueID)
-        if (item) {
-            item.remove()
-        }
-    }
-
     /** Toggles delete mode for snapshots/solutions. */
     toggleDeleteMode(): void {
         this.isDeleteSnapshotMode = !this.isDeleteSnapshotMode

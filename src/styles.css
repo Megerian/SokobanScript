@@ -24,44 +24,44 @@ body {
     display: flex;
 }
 
-/* Left column (selectors + stats) */
+/* Left column (collection/puzzle selectors + stats) */
 #appDiv > div:first-child {
     padding-top: 20px;
     padding-left: 20px; /* small gap from sidebar */
 }
 
-/* Right column: toolbar + canvas + status bar */
+/* Right column: toolbar + board + status bar */
 #buttonsAndCanvasDIV {
     display: flex;
     flex-direction: column;
-    align-items: flex-start; /* children width = own width, no stretching */
-    margin-left: 24px;       /* gap between selectors and board */
+    align-items: flex-start;     /* children width follows their own width, no stretching */
+    margin-left: 24px;           /* gap between selectors and board */
     margin-top: 16px;
-    flex: 0 0 auto;          /* width follows its content (canvas + toolbar) */
+    flex: 0 0 auto;              /* width follows its content (canvas + toolbar) */
 }
 
-/* Toolbar: width is set dynamically from JS to board pixel width */
+/* Toolbar: width is set dynamically from JS to the board pixel width */
 #toolbarButtons {
     display: flex;
-    justify-content: center;  /* center buttons within toolbar row */
+    justify-content: center;     /* center buttons inside the toolbar row */
     gap: 8px;
     margin-bottom: 8px;
-    width: auto;              /* JS sets an explicit px width */
+    width: auto;                 /* JS sets an explicit px width */
 }
 
-/* Canvas wrapper: relative for solved overlay, shrink to board size */
+/* Canvas wrapper: relative for solved overlay, shrinks to board size */
 #canvasDIV {
     position: relative;
     display: inline-block;
     margin-top: 8px;
 }
 
-/* Canvas element itself */
+/* The canvas element itself */
 #canvas {
     display: block;
 }
 
-/* Helper (not used for solved popup) */
+/* Generic center helper (not used for the "solved" popup) */
 .center {
     margin: 0;
     position: absolute;
@@ -103,14 +103,13 @@ body {
 /*  Left selector area                                                   */
 /* ===================================================================== */
 
-/* Left selector cards (collection & puzzle selectors) */
+/* Cards for collection & puzzle selectors */
 .selector {
-    /* keep the current look; horizontal spacing is controlled above */
     padding-top: 0;
     padding-left: 0;
 }
 
-/* Labels behave like inline-blocks so spacing works consistently */
+/* Labels behave like inline-blocks so spacing is consistent */
 label {
     display: inline-block;
 }
@@ -119,11 +118,9 @@ label {
 /*  Snapshot / Solution sidebar                                          */
 /* ===================================================================== */
 
-/* Snapshot / Solution sidebar container */
+/* Sidebar container */
 #snapshotSidebar {
-    padding: 0 16px 12px 16px;   /* a bit smaller bottom padding */
-
-    /* Make the sidebar a vertical flex container */
+    padding: 0 16px 12px 16px;   /* slightly smaller bottom padding */
     display: flex;
     flex-direction: column;
 }
@@ -153,7 +150,7 @@ label {
     flex: 1 1 0;
     padding-left: 8px;
     padding-right: 8px;
-    white-space: nowrap;        /* prevent wrapping of "Solutions"/"Snapshots" */
+    white-space: nowrap;        /* prevent wrapping of button labels */
     font-size: 0.85rem;
 }
 
@@ -162,13 +159,12 @@ label {
     padding: 8px 0 0 0;
     margin-top: 8px;
 
-    /* Do not force it to fill everything, height is capped by max-height */
     flex: 0 1 auto;
 
     /* Maximum vertical height of the list */
     max-height: 70vh;
 
-    /* Allow the list itself to scroll when there are many items */
+    /* Scroll the list when there are many items */
     min-height: 0;
     overflow-y: auto;
 }
@@ -181,14 +177,14 @@ label {
 
 /* Snapshot / solution item styling */
 #snapshotList .item.solution {
-    background-color: #EEF2FA !important;   /* very soft blue-grey */
+    background-color: #EEF2FA !important;   /* soft blue-grey */
     border-left: 4px solid #6B8BC3;         /* muted blue accent */
     font-weight: bold;
     border-radius: 4px;
 }
 
 #snapshotList .item.snapshot {
-    background-color: #F6F8FC !important;   /* even lighter blue-grey */
+    background-color: #F6F8FC !important;   /* very light blue-grey */
     border-left: 4px solid #8FA5D6;         /* slightly lighter accent */
     font-weight: bold;
     border-radius: 4px;
@@ -228,7 +224,7 @@ label {
     display: inline-block !important;
 }
 
-/* Slightly highlight the delete icon on hover */
+/* Highlight the delete icon on hover */
 #snapshotList .item:hover .snapshot-delete-icon {
     opacity: 0.9;
 }
@@ -277,11 +273,10 @@ label {
 /*  Toast / Message positioning (Fomantic UI toast)                      */
 /* ===================================================================== */
 
-/* Optional: fine-tune position of bottom-center toasts */
+/* Fine-tune position of bottom-center toasts if needed */
 .ui.toast-container.bottom.center {
-    bottom: 1.5rem;   /* move a bit up from the very bottom if desired */
+    bottom: 1.5rem;   /* move a bit up from the very bottom */
 }
-
 
 /* ===================================================================== */
 /*  Letslogic solution submission                                        */
@@ -305,7 +300,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Responsiveness (optional light tweaks)                               */
+/*  Responsiveness (small layout tweaks)                                 */
 /* ===================================================================== */
 
 @media (max-width: 900px) {
@@ -321,5 +316,90 @@ label {
     #buttonsAndCanvasDIV {
         margin-left: 16px;
         margin-top: 8px;
+    }
+}
+
+/* ===================================================================== */
+/*  Board rulers (optional coordinate labels)                            */
+/* ===================================================================== */
+
+/* Wrapper around rulers + canvas */
+#boardWithRulers {
+    display: inline-block;   /* shrink-wrap to board + rulers */
+}
+
+/* Left ruler + canvas side-by-side */
+#boardRulerLeftAndCanvas {
+    display: flex;
+    align-items: flex-start; /* top-align left ruler and canvas */
+}
+
+/* Top ruler (column letters) */
+#boardRulerTop {
+    display: flex;
+    margin-left: 24px;      /* roughly the width of the left ruler */
+    font-family: monospace;
+    font-size: 16px;
+    user-select: none;
+}
+
+/* Left ruler (row numbers) */
+#boardRulerLeft {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    font-family: monospace;
+    font-size: 16px;
+    line-height: 1.1;
+    margin-top: 0;          /* align first row vertically with the first board row */
+    user-select: none;
+}
+
+/* Individual ruler cells */
+.board-ruler-cell {
+    box-sizing: border-box;
+
+    /* Center text horizontally and vertically inside the dynamic cell height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: rgba(0, 0, 0, 0.9);
+    padding: 0 4px;     /* horizontal padding only */
+    line-height: 1;     /* important so font metrics do not shift text */
+}
+
+/* Highlight for hovered row/column */
+.board-ruler-highlight {
+    background-color: rgba(33, 133, 208, 0.45);  /* stronger blue highlight */
+    color: #000;
+    font-weight: 700;
+}
+
+/* Fully hide the ruler when disabled */
+.board-ruler-hidden {
+    display: none !important;
+}
+
+
+
+/* Animation for newly inserted snapshot/solution */
+.snapshot-just-added {
+    animation: fadeInScale 450ms ease-out;
+}
+
+@keyframes fadeInScale {
+    0% {
+        opacity: 0;
+        transform: scale(0.92);
+        background-color: #fff7d1;
+    }
+    60% {
+        opacity: 1;
+        transform: scale(1.03);
+    }
+    100% {
+        transform: scale(1);
+        background-color: inherit;
     }
 }

@@ -6,7 +6,7 @@ import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
 import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
 import { Collection } from "../Sokoban/domainObjects/Collection"
 import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
-import { DIRECTION, Directions, UP } from "../Sokoban/Directions"
+import {DIRECTION, Directions, DOWN, UP} from "../Sokoban/Directions"
 import { NightShift3Skin } from "../skins/commonSkinFormat/NighShift3Skin"
 import { SkinLoader } from "../skins/SkinLoader"
 import { Solution } from "../Sokoban/domainObjects/Solution"
@@ -40,6 +40,7 @@ export const enum Action {
     importLURDString = "importLURDString",
     saveSnapshot = "saveSnapshot",
     toggleDeleteSnapshotMode = "toggleDeleteSnapshotMode",
+    toggleRuler = "toggleRuler",
 
     // Puzzle navigation
     nextPuzzle = "nextPuzzle",
@@ -66,7 +67,19 @@ export class GUI {
     private selectedObjectAnimationDelayItems = document.querySelectorAll("[data-selectedObjectAnimationDelay]")
     private showAnimationsCheckbox            = document.getElementById("showAnimations") as HTMLInputElement
 
+    /** Ruler checkbox (View menu) */
+    private showRulerCheckbox                 = document.getElementById("showRuler") as HTMLInputElement
+
+    /** Ruler containers around the board */
+    private boardRulerTop  = document.getElementById("boardRulerTop") as HTMLDivElement
+    private boardRulerLeft = document.getElementById("boardRulerLeft") as HTMLDivElement
+
+    /** Currently highlighted ruler cells (column + row) */
+    private highlightedRulerCol: HTMLElement | null = null
+    private highlightedRulerRow: HTMLElement | null = null
+
     /** Settings menu */
+
         // Sound
     private soundEnabledCheckbox = document.getElementById("soundEnabled") as HTMLInputElement
     // Background
@@ -250,6 +263,10 @@ export class GUI {
         this.soundEnabledCheckbox.checked   = Settings.soundEnabled
         this.backgroundColor.value          = Settings.backgroundColor
 
+        if (this.showRulerCheckbox) {
+            this.showRulerCheckbox.checked = Settings.showRulerFlag
+        }
+
         await this.setSkin(Settings.skinName)
 
         if (Settings.backgroundImageName.length > 0) {
@@ -317,6 +334,68 @@ export class GUI {
         }
     }
 
+    /** Mouse is moved over the canvas – highlight corresponding ruler cells. */
+    private canvasMouseMove(event: MouseEvent): void {
+        const boardPos = this.boardRenderer.screenToBoard(event.clientX, event.clientY)
+        if (boardPos == null) {
+            this.clearRulerHighlight()
+            return
+        }
+
+        const col = boardPos % this.board.width
+        const row = Math.floor(boardPos / this.board.width)
+
+        this.highlightRulerForCell(col, row)
+    }
+
+    /** Highlight one column letter and one row number in the rulers. */
+    private highlightRulerForCell(col: number, row: number): void {
+        // Remove previous highlight
+        if (this.highlightedRulerCol) {
+            this.highlightedRulerCol.classList.remove("board-ruler-highlight")
+            this.highlightedRulerCol = null
+        }
+        if (this.highlightedRulerRow) {
+            this.highlightedRulerRow.classList.remove("board-ruler-highlight")
+            this.highlightedRulerRow = null
+        }
+
+        // If rulers are hidden, nothing to highlight
+        if (!Settings.showRulerFlag) {
+            return
+        }
+
+        // Find column cell with matching data-col
+        const colEl = this.boardRulerTop.querySelector<HTMLElement>(
+            `.board-ruler-cell[data-col="${col}"]`
+        )
+        if (colEl) {
+            colEl.classList.add("board-ruler-highlight")
+            this.highlightedRulerCol = colEl
+        }
+
+        // Find row cell with matching data-row
+        const rowEl = this.boardRulerLeft.querySelector<HTMLElement>(
+            `.board-ruler-cell[data-row="${row}"]`
+        )
+        if (rowEl) {
+            rowEl.classList.add("board-ruler-highlight")
+            this.highlightedRulerRow = rowEl
+        }
+    }
+
+    /** Remove any current ruler highlight (called on mouseleave / outside board). */
+    private clearRulerHighlight(): void {
+        if (this.highlightedRulerCol) {
+            this.highlightedRulerCol.classList.remove("board-ruler-highlight")
+            this.highlightedRulerCol = null
+        }
+        if (this.highlightedRulerRow) {
+            this.highlightedRulerRow.classList.remove("board-ruler-highlight")
+            this.highlightedRulerRow = null
+        }
+    }
+
     /**
      * Returns the board position for the given screen (x, y) coordinates
      * or NONE if they do not map to a valid board cell.
@@ -341,6 +420,9 @@ export class GUI {
 
         // Align toolbar width to board width after each redraw
         this.syncToolbarWidthToBoard()
+
+        // Update rulers (visibility + labels)
+        this.updateRulerLayout()
     }
 
     /**
@@ -373,14 +455,15 @@ export class GUI {
         }
 
         // As a fallback, try to face any non-wall neighbor
-        for (const direction of Directions.DIRECTIONS) {
-            const neighborPosition = this.board.getNeighborPosition(this.board.playerPosition, direction)
-            if (!this.board.isWall(neighborPosition)) {
-                return direction
-            }
-        }
+        // for (const direction of Directions.DIRECTIONS) {
+        //     const neighborPosition = this.board.getNeighborPosition(this.board.playerPosition, direction)
+        //     if (!this.board.isWall(neighborPosition)) {
+        //         return direction
+        //     }
+        // }
 
-        return UP
+        // Prefer downward facing since this way the player looks at the user :-)
+        return DOWN
     }
 
     /** Focus + open the collection selector (Fomantic or native). */
@@ -530,7 +613,6 @@ export class GUI {
 
                 case "ArrowRight":
                 case "d":
-                    // "l" wird jetzt für den Puzzle-Selector benutzt
                     this.doAction(Action.moveRight)
                     event.preventDefault()
                     break
@@ -594,6 +676,10 @@ export class GUI {
     private addCanvasListeners(): void {
         this.canvas.addEventListener("mousedown", (event) => this.canvasMouseDown(event))
         this.canvas.addEventListener("mouseup",   (event) => this.canvasMouseUp(event))
+
+        // NEW: highlight ruler while mouse moves over the board
+        this.canvas.addEventListener("mousemove", (event) => this.canvasMouseMove(event))
+        this.canvas.addEventListener("mouseleave", () => this.clearRulerHighlight())
 
         // Only scroll when mouse is above canvas
         this.canvas.addEventListener("wheel", (event) => this.mouseScroll(event), {
@@ -686,15 +772,14 @@ export class GUI {
                 this.importedCollections.set(baseName, importedCollection)
 
                 // Ensure option exists in selector
-                let existingOption = Array.from(this.collectionSelector.options)
-                    .find(option => option.value === baseName)
+                const alreadyExists = Array.from(this.collectionSelector.options)
+                    .some(option => option.value === baseName)
 
-                if (!existingOption) {
+                if (!alreadyExists) {
                     const option = document.createElement("option")
                     option.value = baseName
                     option.text  = baseName
                     this.collectionSelector.add(option)
-                    existingOption = option
                 }
 
                 this.collectionSelector.value = baseName
@@ -737,6 +822,10 @@ export class GUI {
         bindClick(this.setDropsBackgroundImage,   Action.setDropsBackgroundImage)
 
         bindChange(this.showAnimationsCheckbox, Action.showAnimationsCheckbox)
+
+        if (this.showRulerCheckbox) {
+            bindChange(this.showRulerCheckbox, Action.toggleRuler)
+        }
 
         bindClick(this.copyMovesAsString,         Action.copyMovesAsString)
         bindClick(this.pasteMovesFromClipboard,   Action.pasteMovesFromClipboard)
@@ -901,6 +990,101 @@ export class GUI {
         this.boardRenderer.adjustCanvasSize()
         this.boardRenderer.adjustNewGraphicSize()
         this.updateCanvas()
+    }
+
+    // ------------------------------------------------------------------------
+    // Ruler helpers
+    // ------------------------------------------------------------------------
+
+    /**
+     * Shows or hides the rulers around the board according to Settings.showRulerFlag
+     * and rebuilds the labels when visible.
+     */
+    private updateRulerLayout(): void {
+        if (!this.boardRulerTop || !this.boardRulerLeft) {
+            return
+        }
+
+        const visible = Settings.showRulerFlag
+
+        if (!visible) {
+            this.boardRulerTop.style.display  = "none"
+            this.boardRulerLeft.style.display = "none"
+            return
+        }
+
+        this.boardRulerTop.style.display  = ""
+        this.boardRulerLeft.style.display = ""
+
+        this.renderRulers()
+    }
+
+    /**
+     * Rebuilds the column (A, B, C, …) and row (1, 2, 3, …) labels so that they
+     * match the current board size and cell pixel size.
+     */
+    private renderRulers(): void {
+        if (!this.board || !this.boardRulerTop || !this.boardRulerLeft) {
+            return
+        }
+
+        const cols = this.board.width
+        const rows = this.board.height
+
+        if (!cols || !rows || cols <= 0 || rows <= 0) {
+            this.boardRulerTop.innerHTML  = ""
+            this.boardRulerLeft.innerHTML = ""
+            return
+        }
+
+        const boardWidthPx  = this.boardRenderer.getBoardPixelWidth()
+        const boardHeightPx = this.boardRenderer.getBoardPixelHeight()
+
+        const cellWidth  = boardWidthPx  / cols
+        const cellHeight = boardHeightPx / rows
+
+        // --- Top ruler: A, B, C, ... ---
+
+        this.boardRulerTop.innerHTML = ""
+
+        for (let x = 0; x < cols; x++) {
+            const label = this.getColumnLabel(x)   // A, B, ..., Z, AA, AB, ...
+            const cellDiv = document.createElement("div")
+            cellDiv.classList.add("board-ruler-cell")
+            cellDiv.dataset.col = String(x)             // <-- NEW: column index for highlighting
+            cellDiv.style.width = `${cellWidth}px`
+            cellDiv.textContent = label
+            this.boardRulerTop.appendChild(cellDiv)
+        }
+
+        // --- Left ruler: 1, 2, 3, ... ---
+
+        this.boardRulerLeft.innerHTML = ""
+
+        for (let y = 0; y < rows; y++) {
+            const cellDiv = document.createElement("div")
+            cellDiv.classList.add("board-ruler-cell")
+            cellDiv.dataset.row = String(y)             // <-- NEW: row index for highlighting
+            cellDiv.style.height = `${cellHeight}px`
+            cellDiv.textContent = String(y + 1)
+            this.boardRulerLeft.appendChild(cellDiv)
+        }
+    }
+
+    /**
+     * Converts a zero-based column index to a spreadsheet-like label: 0->A, 1->B, …, 25->Z, 26->AA, etc.
+     */
+    private getColumnLabel(index: number): string {
+        let n = index
+        let label = ""
+
+        while (n >= 0) {
+            const remainder = n % 26
+            label = String.fromCharCode("A".charCodeAt(0) + remainder) + label
+            n = Math.floor(n / 26) - 1
+        }
+
+        return label
     }
 
     /** Updates the background color and clears any background image. */
@@ -1233,6 +1417,13 @@ export class GUI {
 
             case Action.toggleDeleteSnapshotMode:
                 this.snapshotSidebarView.toggleDeleteMode()
+                break
+
+            case Action.toggleRuler:
+                if (this.showRulerCheckbox) {
+                    Settings.showRulerFlag = this.showRulerCheckbox.checked
+                }
+                this.updateRulerLayout()
                 break
 
             case Action.collectionSelected:

@@ -492,10 +492,10 @@ export class BoardRenderer {
      *
      * Typically used by the GUI for mouse click handling.
      */
-    screenToBoard(x: number, y: number): number | null {
+    screenToBoard(clientX: number, clientY: number): number | null {
         const rect = this.canvas.getBoundingClientRect()
-        const canvasX = x - rect.left
-        const canvasY = y - rect.top
+        const canvasX = clientX - rect.left
+        const canvasY = clientY - rect.top
 
         const cellX = Math.floor(canvasX / this.graphicDisplaySize)
         const cellY = Math.floor(canvasY / this.graphicDisplaySize)
