@@ -1,7 +1,7 @@
 import {CommonSkinFormatBase} from "./CommonSkinFormatBase"
 
 /**
- * The NightShift3Skin from Gerry Wiseman.
+ * The KSokoban2Skin.
  */
 export class KSokoban2Skin extends CommonSkinFormatBase {
 

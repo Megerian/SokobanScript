@@ -1,8 +1,6 @@
-import { Board, REACHABLE_BOX, REACHABLE_PLAYER } from "../board/Board"
+import { Board } from "../board/Board"
 import { NONE, SokobanApp } from "../app/SokobanApp"
-import { CommonSkinFormatBase, SKIN_NAME, SpriteData } from "../skins/commonSkinFormat/CommonSkinFormatBase"
-import { XSB_BACKGROUND, XSB_WALL } from "../Sokoban/PuzzleFormat"
-import { Utilities } from "../Utilities/Utilities"
+import { CommonSkinFormatBase, SKIN_NAME } from "../skins/commonSkinFormat/CommonSkinFormatBase"
 import { Settings } from "../app/Settings"
 import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
 import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
@@ -12,9 +10,12 @@ import { DIRECTION, Directions, UP } from "../Sokoban/Directions"
 import { NightShift3Skin } from "../skins/commonSkinFormat/NighShift3Skin"
 import { SkinLoader } from "../skins/SkinLoader"
 import { Solution } from "../Sokoban/domainObjects/Solution"
+import { BoardRenderer, SelectionState } from "./BoardRenderer"
+import { SnapshotSidebarCallbacks, SnapshotSidebarView } from "./SnapshotSidebarView"
+import { LetslogicProgressCallbacks } from "../services/letslogic/LetsLogicService"
 
 export const enum Action {
-    puzzleSelected = "puzzleSelected",              // kept name for compatibility (represents "puzzleSelected")
+    puzzleSelected = "puzzleSelected",
     collectionSelected = "collectionSelected",
     toggleSnapshotList = "toggleSnapshotList",
     howToPlay = "howToPlay",
@@ -34,11 +35,20 @@ export const enum Action {
     showAnimationsCheckbox = "showAnimationsCheckbox",
     copyMovesAsString = "copyMovesAsString",
     pasteMovesFromClipboard = "pasteMovesFromClipboard",
-    importPuzzleFromClipboard = "importPuzzleFromClipboard",   // semantically: importPuzzleFromClipboard
-    copyPuzzleToClipboard = "copyPuzzleToClipboard",           // semantically: copyPuzzleToClipboard
+    importPuzzleFromClipboard = "importPuzzleFromClipboard",
+    copyPuzzleToClipboard = "copyPuzzleToClipboard",
     importLURDString = "importLURDString",
     saveSnapshot = "saveSnapshot",
     toggleDeleteSnapshotMode = "toggleDeleteSnapshotMode",
+
+    // Puzzle navigation
+    nextPuzzle = "nextPuzzle",
+    previousPuzzle = "previousPuzzle",
+
+    // Letslogic specific actions
+    setLetslogicApiKey = "setLetslogicApiKey",
+    submitLetslogicCurrentPuzzleSolutions = "submitLetslogicCurrentPuzzleSolutions",
+    submitLetslogicCollectionSolutions   = "submitLetslogicCollectionSolutions",
 
     cellClicked = "cellClicked",
 }
@@ -46,10 +56,8 @@ export const enum Action {
 export class GUI {
 
     // --- Status elements used by SokobanApp ---
-    movesText    = document.getElementById("moves")     as HTMLSpanElement
-    pushesText   = document.getElementById("pushes")    as HTMLSpanElement
-    boardDisplay = document.getElementById("grid")      as HTMLElement
-    debugText    = document.getElementById("debugText") as HTMLElement
+    movesText  = document.getElementById("moves")  as HTMLSpanElement
+    pushesText = document.getElementById("pushes") as HTMLSpanElement
 
     /** View menu (skin, animation, etc.) */
     private skinItems                         = document.querySelectorAll("[data-skinName]")
@@ -63,22 +71,49 @@ export class GUI {
     private soundEnabledCheckbox = document.getElementById("soundEnabled") as HTMLInputElement
     // Background
     private backgroundColor           = document.getElementById("backgroundColor")           as HTMLInputElement
-    private setDefaultBackgroundColor = document.getElementById("setDefaultBackgroundColor") as HTMLInputElement
-    private setDropsBackgroundImage   = document.getElementById("setDropsBackgroundImage")   as HTMLButtonElement
+    private setDefaultBackgroundColor = document.getElementById("setDefaultBackgroundColor") as HTMLElement
+    private setDropsBackgroundImage   = document.getElementById("setDropsBackgroundImage")   as HTMLElement
 
     /** Toolbar elements */
-    undoAllButton         = document.getElementById("undoAllButton")         as HTMLButtonElement
-    undoButton            = document.getElementById("undoButton")            as HTMLButtonElement
-    redoButton            = document.getElementById("redoButton")            as HTMLButtonElement
-    redoAllButton         = document.getElementById("redoAllButton")         as HTMLButtonElement
-    private hideWallsCheckbox        = document.getElementById("hideWalls")                as HTMLInputElement
-    private copyMovesAsString        = document.getElementById("copyMovesAsString")        as HTMLInputElement
-    private pasteMovesFromClipboard  = document.getElementById("pasteMovesFromClipboard")  as HTMLInputElement
-    private importPuzzleFromClipboard = document.getElementById("importPuzzleFromClipboard") as HTMLInputElement
-    private exportPuzzleFromClipboard = document.getElementById("exportPuzzleFromClipboard") as HTMLInputElement
-    private importPuzzleFromFile      = document.getElementById("importPuzzleFromFile")      as HTMLDivElement
-    private puzzleFileInput           = document.getElementById("puzzleFileInput")           as HTMLInputElement
-    private howToPlayMenuItem        = document.getElementById("howToPlay")                as HTMLInputElement
+    undoAllButton  = document.getElementById("undoAllButton")  as HTMLButtonElement
+    undoButton     = document.getElementById("undoButton")     as HTMLButtonElement
+    redoButton     = document.getElementById("redoButton")     as HTMLButtonElement
+    redoAllButton  = document.getElementById("redoAllButton")  as HTMLButtonElement
+    private hideWallsCheckbox         = document.getElementById("hideWalls")                  as HTMLInputElement
+    private copyMovesAsString         = document.getElementById("copyMovesAsString")          as HTMLElement
+    private pasteMovesFromClipboard   = document.getElementById("pasteMovesFromClipboard")    as HTMLElement
+    private importPuzzleFromClipboard = document.getElementById("importPuzzleFromClipboard")  as HTMLElement
+    private exportPuzzleFromClipboard = document.getElementById("exportPuzzleFromClipboard")  as HTMLElement
+    private importPuzzleFromFile      = document.getElementById("importPuzzleFromFile")       as HTMLDivElement
+    private puzzleFileInput           = document.getElementById("puzzleFileInput")            as HTMLInputElement
+    private howToPlayMenuItem         = document.getElementById("howToPlay")                  as HTMLInputElement
+
+    /** Letslogic menu */
+    private letslogicSetApiKeyItem        = document.getElementById("letslogicSetApiKey")        as HTMLDivElement
+    private letslogicSubmitCurrentItem    = document.getElementById("letslogicSubmitCurrent")    as HTMLDivElement
+    private letslogicSubmitCollectionItem = document.getElementById("letslogicSubmitCollection") as HTMLDivElement
+
+    /** Letslogic API key modal (for clickable link + input) */
+    private letslogicApiKeyModal      = document.getElementById("letslogicApiKeyModal")      as HTMLDivElement | null
+    private letslogicApiKeyInput      = document.getElementById("letslogicApiKeyInput")      as HTMLInputElement | null
+    private letslogicApiKeySaveButton = document.getElementById("letslogicApiKeySaveButton") as HTMLButtonElement | null
+
+    /**
+     * Letslogic progress modal (shows that something is happening during submissions
+     * and displays the Letslogic responses and per-puzzle progress).
+     *
+     * The corresponding HTML elements are expected in index.html:
+     *  - #letslogicProgressModal
+     *  - #letslogicProgressTitle
+     *  - #letslogicProgressStatus
+     *  - #letslogicProgressLog
+     *  - #letslogicProgressCloseButton
+     */
+    private letslogicProgressModal       = document.getElementById("letslogicProgressModal")       as HTMLDivElement | null
+    private letslogicProgressTitle       = document.getElementById("letslogicProgressTitle")       as HTMLDivElement | null
+    private letslogicProgressStatus      = document.getElementById("letslogicProgressStatus")      as HTMLDivElement | null
+    private letslogicProgressLog         = document.getElementById("letslogicProgressLog")         as HTMLPreElement | null
+    private letslogicProgressCloseButton = document.getElementById("letslogicProgressCloseButton") as HTMLButtonElement | null
 
     /** Status bar */
     private statusTextLabel = document.getElementById("statusTextLabel") as HTMLLabelElement
@@ -86,10 +121,10 @@ export class GUI {
 
     /** Collection and puzzle selectors */
     private collectionSelector = document.getElementById("collectionSelector") as HTMLSelectElement
-    private puzzleSelector     = document.getElementById("puzzleSelector")      as HTMLSelectElement
-    private puzzleCollection   = new Collection("", "", [])    // Currently active puzzle collection
+    private puzzleSelector     = document.getElementById("puzzleSelector")     as HTMLSelectElement
+    private puzzleCollection   = new Collection("", "", []) // currently active puzzle collection
 
-    // Imported collections keyed by display name (usually filename without extension).
+    // Imported collections keyed by display name (usually file name without extension).
     private importedCollections = new Map<string, Collection>()
 
     /** Solutions/Snapshots list + sidebar UI */
@@ -103,42 +138,72 @@ export class GUI {
     private filterSnapshotsButton    = document.getElementById("filterSnapshotsButton")    as HTMLButtonElement
 
     private snapshotContextMenu = document.getElementById("snapshotContextMenu") as HTMLDivElement | null
-    private contextMenuSnapshot: Snapshot | null = null
 
-    private showSolutions = true
-    private showSnapshots = true
-    private isDeleteSnapshotMode = false
-
-    toolbarButtons = document.getElementById("toolbarButtons") as HTMLDivElement  // main container for toolbar and board
+    toolbarButtons = document.getElementById("toolbarButtons") as HTMLDivElement // main container for toolbar and board
 
     // Canvas / Rendering
     private canvas: HTMLCanvasElement = document.getElementById("canvas") as HTMLCanvasElement
-    private ctx = this.canvas.getContext("2d")!
+    private board = Board.getDummyBoard()
+    private skin: CommonSkinFormatBase = new NightShift3Skin()
+    private boardRenderer: BoardRenderer
 
-    private isShowPlayerSelectedAnimationActivated = false
-    private isShowBoxSelectedAnimationActivated    = false
-    private selectedObjectAnimationCount = 0                 // Only one selection animation at a time
-    private boxPositionAnAnimationIsShownFor: number = NONE  // position of the box currently animated
+    // Snapshot-/Solution-Sidebar view
+    private snapshotSidebarView: SnapshotSidebarView
 
     // Mouse
     clickedPosition: number = NONE      // board position that was clicked
     clickedXCoordinate: number = -1     // x-coordinate of mouse event
     clickedYCoordinate: number = -1     // y-coordinate of mouse event
 
-    // Board/Skin
-    private board = Board.getDummyBoard()
-    private skin: CommonSkinFormatBase = new NightShift3Skin()
-    private graphicDisplaySize = 44         // width/height of graphics on screen
-
-    static isModalDialogShown = false       // used to temporarily suppress key handling
+    static isModalDialogShown = false   // used to temporarily suppress key handling
 
     constructor(private readonly app: SokobanApp) {
+
+        this.boardRenderer = new BoardRenderer(this.canvas, this.board, this.skin)
+
+        const sidebarCallbacks: SnapshotSidebarCallbacks = {
+            onSetSnapshot:   (snapshot: Snapshot) => this.app.setSnapshot(snapshot),
+            onCopySnapshot:  (snapshot: Snapshot) => this.app.copyMovesToClipboard(snapshot.lurd),
+            onDeleteSnapshot:(snapshot: Snapshot) => this.app.deleteSnapshot(snapshot),
+        }
+
+        this.snapshotSidebarView = new SnapshotSidebarView(
+            this.snapshotList,
+            this.snapshotSidebar,
+            this.deleteSnapshotButton,
+            this.filterSolutionsButton,
+            this.filterSnapshotsButton,
+            this.snapshotContextMenu,
+            sidebarCallbacks
+        )
+
         this.addListeners()
 
         document.body.style.overflow = "hidden" // avoid window scrolling when mouse wheel is used
-        this.ctx.imageSmoothingQuality = "high"
 
-        this.adjustCanvasSize()                 // adjust canvas to window size
+        this.boardRenderer.adjustCanvasSize()
+        this.boardRenderer.adjustNewGraphicSize()
+    }
+
+    /** Recalculates canvas and graphic size after sidebar visibility changed. */
+    private recalcLayoutAfterSidebarChange = () => {
+        this.boardRenderer.adjustCanvasSize()
+        this.boardRenderer.adjustNewGraphicSize()
+        this.updateCanvas()
+    }
+
+    /** Aligns the toolbar width with the actual board width in pixels. */
+    private syncToolbarWidthToBoard(): void {
+        if (!this.toolbarButtons) {
+            return
+        }
+
+        const boardWidthPx = this.boardRenderer.getBoardPixelWidth()
+
+        // Only apply if we have a meaningful width
+        if (boardWidthPx > 0) {
+            this.toolbarButtons.style.width = `${boardWidthPx}px`
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -146,7 +211,7 @@ export class GUI {
     // ------------------------------------------------------------------------
 
     /** Sets all GUI elements according to the current settings. */
-    async setCurrentSettings() {
+    async setCurrentSettings(): Promise<void> {
 
         // Skin
         this.skinItems.forEach(item => {
@@ -195,23 +260,31 @@ export class GUI {
 
         // Snapshot list visibility
         this.showSnapshotListCheckbox.checked = Settings.showSnapshotListFlag
-        GUI.setSnapshotListVisible(Settings.showSnapshotListFlag)
+        this.setSnapshotListVisible(Settings.showSnapshotListFlag)
+
+        // Canvas & Rendering
+        this.boardRenderer.adjustCanvasSize()
+        this.boardRenderer.adjustNewGraphicSize()
+        this.updateCanvas()
     }
 
     async setSkin(skinName: SKIN_NAME): Promise<void> {
         this.skin = await SkinLoader.loadSkinByName(skinName)
         Settings.skinName = skinName
 
-        this.adjustNewGraphicSize()
-        this.restartAnimations()
+        this.boardRenderer.setSkin(this.skin)
+        this.boardRenderer.restartAnimations()
+        this.updateCanvas()
     }
 
     /** Called when a new puzzle is loaded in the app. */
-    newPuzzleLoaded() {
+    newPuzzleLoaded(): void {
         // Keep a direct reference to the current board of the active puzzle
         this.board = this.app.board
 
-        this.adjustNewGraphicSize()
+        this.boardRenderer.setBoard(this.board)
+        this.boardRenderer.adjustCanvasSize()
+        this.boardRenderer.adjustNewGraphicSize()
         this.updateCanvas()
     }
 
@@ -219,7 +292,7 @@ export class GUI {
     // Canvas / Mouse handling
     // ------------------------------------------------------------------------
 
-    private canvasMouseDown(event: MouseEvent) {
+    private canvasMouseDown(event: MouseEvent): void {
         this.clickedXCoordinate = event.x
         this.clickedYCoordinate = event.y
 
@@ -229,7 +302,7 @@ export class GUI {
         }
     }
 
-    private canvasMouseUp(event: MouseEvent) {
+    private canvasMouseUp(event: MouseEvent): void {
         // Only treat mouse up as a drag end if mouse moved more than a few pixels
         if (
             Math.abs(event.x - this.clickedXCoordinate) < 5 &&
@@ -249,200 +322,38 @@ export class GUI {
      * or NONE if they do not map to a valid board cell.
      */
     private convertScreenCoordinatesToBoardPosition(x: number, y: number): number {
-
-        const rect = this.canvas.getBoundingClientRect()
-        const canvasX = x - rect.left
-        const canvasY = y - rect.top
-
-        const cellX = Math.floor(canvasX / this.graphicDisplaySize)
-        const cellY = Math.floor(canvasY / this.graphicDisplaySize)
-
-        const boardPosition = cellY * this.board.width + cellX
-
-        const isLegalBoardPosition =
-            cellX >= 0 && cellX < this.board.width &&
-            cellY >= 0 && cellY < this.board.height
-
-        return isLegalBoardPosition ? boardPosition : NONE
+        const boardPos = this.boardRenderer.screenToBoard(x, y)
+        return boardPos != null ? boardPos : NONE
     }
 
     // ------------------------------------------------------------------------
-    // Canvas drawing
+    // Canvas drawing (delegated to BoardRenderer)
     // ------------------------------------------------------------------------
 
     updateCanvas(): void {
-        this.updateCanvasForPositions(...this.board.positions)
+        const selectionState: SelectionState = {
+            selectedBoxPosition: this.app.selectedBoxPosition,
+            isPlayerSelected:    this.app.isPlayerSelected
+        }
+
+        const playerViewDirection = this.getPlayerViewDirection()
+        this.boardRenderer.updateCanvas(selectionState, playerViewDirection)
+
+        // Align toolbar width to board width after each redraw
+        this.syncToolbarWidthToBoard()
     }
 
     /**
      * Updates the images on the canvas for all given board positions.
      */
     updateCanvasForPositions(...positions: number[]): void {
-
-        for (const position of positions) {
-            const boardElement = this.board.getXSB_Char(position)
-
-            if (boardElement === XSB_BACKGROUND) {
-                continue
-            }
-
-            const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
-
-            if (boardElement === XSB_WALL && Settings.hideWallsFlag) {
-                this.ctx.clearRect(outputX, outputY, this.graphicDisplaySize, this.graphicDisplaySize)
-                continue
-            }
-
-            const playerViewDirection = this.getPlayerViewDirection()
-            const spriteData = this.skin.getSprite(this.board, position, playerViewDirection)
-            this.drawSprite(spriteData, outputX, outputY)
-
-            const reachable = this.board.reachableMarker[position]
-            if (reachable === REACHABLE_PLAYER || reachable === REACHABLE_BOX) {
-                this.drawReachableGraphic(outputX, outputY)
-            }
+        const selectionState: SelectionState = {
+            selectedBoxPosition: this.app.selectedBoxPosition,
+            isPlayerSelected:    this.app.isPlayerSelected
         }
 
-        this.showAnimations()
-    }
-
-    /**
-     * Starts or stops selection animations for player/box as needed.
-     */
-    private showAnimations() {
-
-        if (this.skin.playerSelectedAnimationSprites.length === 0) {
-            return  // skin doesn't support animations
-        }
-
-        // Stop box animation if a different box is selected or nothing is selected
-        if (
-            this.isShowBoxSelectedAnimationActivated &&
-            this.boxPositionAnAnimationIsShownFor !== this.app.selectedBoxPosition
-        ) {
-            this.isShowBoxSelectedAnimationActivated = false
-        }
-
-        if (Settings.showAnimationFlag) {
-            // Player animation
-            if (this.app.isPlayerSelected && !this.isShowPlayerSelectedAnimationActivated) {
-                this.showPlayerSelectedAnimation()
-            }
-
-            // Box animation
-            if (this.app.selectedBoxPosition !== NONE && !this.isShowBoxSelectedAnimationActivated) {
-                this.showBoxSelectedAnimation()
-            }
-        }
-
-        if (this.app.selectedBoxPosition === NONE && this.isShowBoxSelectedAnimationActivated) {
-            this.isShowBoxSelectedAnimationActivated = false
-        }
-        if (!this.app.isPlayerSelected && this.isShowPlayerSelectedAnimationActivated) {
-            this.isShowPlayerSelectedAnimationActivated = false
-        }
-    }
-
-    /**
-     * Shows repeated animation over the currently selected box.
-     */
-    private showBoxSelectedAnimation() {
-        const animationGraphics = this.board.isGoal(this.app.selectedBoxPosition)
-            ? this.skin.boxOnGoalSelectedAnimationSprites
-            : this.skin.boxSelectedAnimationSprites
-
-        const drawNextAnimationGraphic =
-            this.getDrawAnimationGraphicsAtPositionFunction(animationGraphics, this.app.selectedBoxPosition)
-
-        this.isShowBoxSelectedAnimationActivated = true
-        this.boxPositionAnAnimationIsShownFor = this.app.selectedBoxPosition
-
-        const animationTimestamp = ++this.selectedObjectAnimationCount
-        const isAnimationActive = () =>
-            this.isShowBoxSelectedAnimationActivated && animationTimestamp === this.selectedObjectAnimationCount
-
-        let previousTimestamp = 0
-
-        const drawGraphicLoop = (timestamp: DOMHighResTimeStamp) => {
-            const elapsedInMs = timestamp - previousTimestamp
-            const currentAnimationDelayInMs =
-                (1000 / animationGraphics.length / Settings.selectedObjectAnimationsSpeedPercent) * 100 // 1 animation per second default
-
-            if (isAnimationActive()) {
-                if (elapsedInMs >= currentAnimationDelayInMs) {
-                    drawNextAnimationGraphic()
-                    previousTimestamp = timestamp
-                }
-                requestAnimationFrame(drawGraphicLoop)
-            }
-        }
-
-        requestAnimationFrame(drawGraphicLoop)
-    }
-
-    /**
-     * Shows repeated animation over the player when selected.
-     */
-    private showPlayerSelectedAnimation() {
-        const animationGraphics = this.board.isGoal(this.board.playerPosition)
-            ? this.skin.playerOnGoalSelectedAnimationSprites
-            : this.skin.playerSelectedAnimationSprites
-
-        const drawNextAnimationGraphic =
-            this.getDrawAnimationGraphicsAtPositionFunction(animationGraphics, this.board.playerPosition)
-
-        this.isShowPlayerSelectedAnimationActivated = true
-
-        const animationTimestamp = ++this.selectedObjectAnimationCount
-        const isAnimationActive = () =>
-            this.isShowPlayerSelectedAnimationActivated && animationTimestamp === this.selectedObjectAnimationCount
-
-        let previousTimestamp = 0
-
-        const drawGraphicLoop = (timestamp: DOMHighResTimeStamp) => {
-            const elapsedInMs = timestamp - previousTimestamp
-            const currentAnimationDelayInMs =
-                (1000 / animationGraphics.length / Settings.selectedObjectAnimationsSpeedPercent) * 100
-
-            if (isAnimationActive()) {
-                if (elapsedInMs >= currentAnimationDelayInMs) {
-                    drawNextAnimationGraphic()
-                    previousTimestamp = timestamp
-                }
-                requestAnimationFrame(drawGraphicLoop)
-            }
-        }
-
-        requestAnimationFrame(drawGraphicLoop)
-    }
-
-    /**
-     * Returns a function that cycles through the given sprite list
-     * and draws one sprite per call at the given board position.
-     */
-    private getDrawAnimationGraphicsAtPositionFunction(
-        graphics: Array<SpriteData>,
-        position: number
-    ): () => void {
-
-        const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
-        const animationGraphics = graphics
-
-        let graphicIndex = 0
-
-        return () => {
-            this.drawSprite(animationGraphics[graphicIndex], outputX, outputY)
-            graphicIndex = (graphicIndex + 1) % animationGraphics.length
-        }
-    }
-
-    /** Returns the canvas coordinates of the given board position. */
-    private getCanvasCoordinatesForPosition(position: number): { outputX: number, outputY: number } {
-        const { x, y } = this.getXYCoordinatesOf(position)
-        return {
-            outputX: x * this.graphicDisplaySize,
-            outputY: y * this.graphicDisplaySize
-        }
+        const playerViewDirection = this.getPlayerViewDirection()
+        this.boardRenderer.updateCanvasForPositions(positions, selectionState, playerViewDirection)
     }
 
     /**
@@ -472,52 +383,46 @@ export class GUI {
         return UP
     }
 
-    /**
-     * Draws the given sprite on the canvas at the given output coordinates.
-     */
-    private drawSprite(imageData: SpriteData, outputX: number, outputY: number) {
-        const imageSize = this.skin.getImageSize()
-        const scaleFactor = this.graphicDisplaySize / imageSize
-        const scaledOutputWidth  = scaleFactor * imageSize
-        const scaledOutputHeight = scaleFactor * imageSize
+    /** Focus + open the collection selector (Fomantic or native). */
+    private focusCollectionSelector(): void {
+        if (!this.collectionSelector) return
 
-        this.ctx.drawImage(imageData.image, outputX, outputY, scaledOutputWidth, scaledOutputHeight)
+        // Native focus
+        this.collectionSelector.focus()
 
-        if (imageData.beautyGraphic != null) {
-            const beautyGraphic = imageData.beautyGraphic
-            this.ctx.drawImage(
-                beautyGraphic.image,
-                outputX + scaleFactor * beautyGraphic.xDrawOffset,
-                outputY + scaleFactor * beautyGraphic.yDrawOffset,
-                scaledOutputWidth,
-                scaledOutputHeight
-            )
+        // Try to open Fomantic dropdown, if initialized
+        const $dropdown = ($("#collectionSelector") as any)
+        if (typeof $dropdown.dropdown === "function") {
+            try {
+                $dropdown.dropdown("show")
+            } catch {
+                // Ignore if Fomantic is not initialized or throws
+            }
+        } else {
+            // Fallback: try to simulate a click on the native select
+            this.collectionSelector.click()
         }
-
-        imageData.rectanglesToClear.forEach(rectangle =>
-            this.ctx.clearRect(
-                outputX + rectangle.x * scaleFactor,
-                outputY + rectangle.y * scaleFactor,
-                rectangle.width * scaleFactor,
-                rectangle.height * scaleFactor
-            )
-        )
     }
 
-    /** Draws a small circle marking a reachable position. */
-    private drawReachableGraphic(outputX: number, outputY: number) {
-        const circleX = outputX + Math.round(this.graphicDisplaySize / 2)
-        const circleY = outputY + Math.round(this.graphicDisplaySize / 2)
+    /** Focus + open the puzzle selector (Fomantic or native). */
+    private focusPuzzleSelector(): void {
+        if (!this.puzzleSelector) return
 
-        const radius = Math.floor(this.graphicDisplaySize * 0.15)
-        this.ctx.beginPath()
-        this.ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI)
-        this.ctx.fillStyle = Settings.reachablePositionColor
-        this.ctx.fill()
+        // Native focus
+        this.puzzleSelector.focus()
 
-        this.ctx.strokeStyle = "rgba(0, 0, 0, 0.7)"
-        this.ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI)
-        this.ctx.stroke()
+        // Try to open Fomantic dropdown, if initialized
+        const $dropdown = ($("#puzzleSelector") as any)
+        if (typeof $dropdown.dropdown === "function") {
+            try {
+                $dropdown.dropdown("show")
+            } catch {
+                // Ignore if Fomantic is not initialized or throws
+            }
+        } else {
+            // Fallback: try to simulate a click on the native select
+            this.puzzleSelector.click()
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -529,16 +434,13 @@ export class GUI {
         this.statusText.textContent = text
     }
 
-    showPuzzleSolvedAnimation() {
-        // Overlay div shows "Puzzle solved!" in the HTML.
+    showPuzzleSolvedAnimation(): void {
         const solvedDiv = document.getElementById("puzzleSolvedDiv") as HTMLDivElement | null
         if (!solvedDiv) return
 
-        // Horizontally center over the board width (same width as toolbarButtons)
-        const toolbar = document.getElementById("toolbarButtons") as HTMLDivElement | null
-        if (toolbar) {
-            const boardWidth = toolbar.offsetWidth
-            // center of the board in pixels, relative to the left edge of canvasDIV
+        // Center horizontally over the *board* width, not the whole canvas
+        const boardWidth = this.boardRenderer.getBoardPixelWidth()
+        if (boardWidth > 0) {
             solvedDiv.style.left = `${boardWidth / 2}px`
         }
 
@@ -550,18 +452,11 @@ export class GUI {
         }, 1500)
     }
 
-    private getXYCoordinatesOf(position: number): { x: number, y: number } {
-        return {
-            x: position % this.board.width,
-            y: Math.floor(position / this.board.width)
-        }
-    }
-
     // ------------------------------------------------------------------------
     // Event listener setup
     // ------------------------------------------------------------------------
 
-    private addListeners() {
+    private addListeners(): void {
 
         this.addKeyboardListeners()
         this.addCanvasListeners()
@@ -569,24 +464,55 @@ export class GUI {
         this.addFileImportListeners()
         this.addToolbarAndMenuListeners()
         this.addSnapshotSidebarListeners()
-        this.addContextMenuListeners()
+        this.addLetslogicApiKeyModalListeners()
+        this.addLetslogicProgressModalListeners()
 
         window.addEventListener("resize", () => {
-            this.adjustCanvasSize()
-            this.adjustNewGraphicSize()
+            this.boardRenderer.adjustCanvasSize()
+            this.boardRenderer.adjustNewGraphicSize()
             this.updateCanvas()
         })
     }
 
-    private addKeyboardListeners() {
+    private addKeyboardListeners(): void {
 
         document.addEventListener("keydown", (event) => {
 
             if (event.shiftKey || event.ctrlKey || GUI.isModalDialogShown) {
                 return
             }
+            // Ignore keys when typing / selecting in form controls
+            const target = event.target as HTMLElement | null
+            if (target) {
+                const tagName = target.tagName
+                if (
+                    tagName === "INPUT" ||
+                    tagName === "TEXTAREA" ||
+                    tagName === "SELECT" ||
+                    target.isContentEditable
+                ) {
+                    // Do not handle Sokoban shortcuts when user is in a form control
+                    return
+                }
+            }
 
-            switch (event.key) {
+            const key = event.key
+
+            // Keyboard shortcuts for selectors
+            if (key === "c" || key === "C") {
+                event.preventDefault()
+                this.focusCollectionSelector()
+                return
+            }
+
+            if (key === "p" || key === "P") {
+                event.preventDefault()
+                this.focusPuzzleSelector()
+                return
+            }
+            // ---------------------------------------------
+
+            switch (key) {
 
                 case "ArrowLeft":
                 case "a":
@@ -604,7 +530,7 @@ export class GUI {
 
                 case "ArrowRight":
                 case "d":
-                case "l":
+                    // "l" wird jetzt für den Puzzle-Selector benutzt
                     this.doAction(Action.moveRight)
                     event.preventDefault()
                     break
@@ -651,17 +577,31 @@ export class GUI {
                     this.doAction(Action.redo)
                     event.preventDefault()
                     break
+
+                case "PageDown":
+                    this.doAction(Action.nextPuzzle)
+                    event.preventDefault()
+                    break
+
+                case "PageUp":
+                    this.doAction(Action.previousPuzzle)
+                    event.preventDefault()
+                    break
             }
         })
     }
 
-    private addCanvasListeners() {
+    private addCanvasListeners(): void {
         this.canvas.addEventListener("mousedown", (event) => this.canvasMouseDown(event))
-        this.canvas.addEventListener("mouseup", (event) => this.canvasMouseUp(event))
-        document.addEventListener("wheel", (event) => this.mouseScroll(event))
+        this.canvas.addEventListener("mouseup",   (event) => this.canvasMouseUp(event))
+
+        // Only scroll when mouse is above canvas
+        this.canvas.addEventListener("wheel", (event) => this.mouseScroll(event), {
+            passive: false   // important so preventDefault() works
+        })
     }
 
-    private addSkinAndAnimationListeners() {
+    private addSkinAndAnimationListeners(): void {
 
         // Skin change
         this.skinItems.forEach(skinItem => {
@@ -716,7 +656,7 @@ export class GUI {
         })
     }
 
-    private addFileImportListeners() {
+    private addFileImportListeners(): void {
         if (!this.importPuzzleFromFile || !this.puzzleFileInput) {
             return
         }
@@ -771,7 +711,7 @@ export class GUI {
         })
     }
 
-    private addToolbarAndMenuListeners() {
+    private addToolbarAndMenuListeners(): void {
 
         // Helpers to shorten code
         const bindClick = (el: HTMLElement | null, action: Action) => {
@@ -798,109 +738,118 @@ export class GUI {
 
         bindChange(this.showAnimationsCheckbox, Action.showAnimationsCheckbox)
 
-        bindClick(this.copyMovesAsString,        Action.copyMovesAsString)
-        bindClick(this.pasteMovesFromClipboard,  Action.pasteMovesFromClipboard)
+        bindClick(this.copyMovesAsString,         Action.copyMovesAsString)
+        bindClick(this.pasteMovesFromClipboard,   Action.pasteMovesFromClipboard)
         bindClick(this.importPuzzleFromClipboard, Action.importPuzzleFromClipboard)
         bindClick(this.exportPuzzleFromClipboard, Action.copyPuzzleToClipboard)
 
         bindClick(this.howToPlayMenuItem, Action.howToPlay)
 
-        this.filterSolutionsButton.addEventListener("click", () => this.toggleSolutionFilter())
-        this.filterSnapshotsButton.addEventListener("click", () => this.toggleSnapshotFilter())
+        // Letslogic menu
+        bindClick(this.letslogicSetApiKeyItem,        Action.setLetslogicApiKey)
+        bindClick(this.letslogicSubmitCurrentItem,    Action.submitLetslogicCurrentPuzzleSolutions)
+        bindClick(this.letslogicSubmitCollectionItem, Action.submitLetslogicCollectionSolutions)
 
+        // Snapshot-UI specific controls that trigger Actions
         bindClick(this.importLURDStringButton,    Action.importLURDString)
-        bindClick(this.deleteSnapshotButton,      Action.toggleDeleteSnapshotMode)
         bindChange(this.showSnapshotListCheckbox, Action.toggleSnapshotList)
 
         this.collectionSelector.addEventListener("change", () => this.doAction(Action.collectionSelected))
         this.puzzleSelector.addEventListener("change",      () => this.doAction(Action.puzzleSelected))
     }
 
-    private addSnapshotSidebarListeners() {
+    private addSnapshotSidebarListeners(): void {
         this.saveSnapshotButton.addEventListener("click", () => this.doAction(Action.saveSnapshot))
     }
 
-    private addContextMenuListeners() {
-        // Global listeners to close the context menu
-        document.addEventListener("click", () => this.closeSnapshotContextMenu())
-        document.addEventListener("scroll", () => this.closeSnapshotContextMenu(), true)
-        document.addEventListener("keydown", (event: KeyboardEvent) => {
-            if (event.key === "Escape") {
-                this.closeSnapshotContextMenu()
-            }
+    /**
+     * Initializes the Letslogic API key modal (clickable link + text input).
+     */
+    private addLetslogicApiKeyModalListeners(): void {
+        if (!this.letslogicApiKeyModal) {
+            return
+        }
+
+        const $modal = ($("#letslogicApiKeyModal") as any)
+
+        // Configure Fomantic modal
+        $modal.modal({
+            autofocus: "#letslogicApiKeyInput",
+            onShow:   () => { GUI.isModalDialogShown = true },
+            onHidden: () => { GUI.isModalDialogShown = false }
         })
 
-        document.getElementById("contextSetSnapshot")?.addEventListener("click", (e: Event) => {
-            e.stopPropagation()
-            if (this.contextMenuSnapshot) {
-                this.app.setSnapshot(this.contextMenuSnapshot)
-            }
-            this.closeSnapshotContextMenu()
+        // Save button in the modal
+        this.letslogicApiKeySaveButton?.addEventListener("click", () => {
+            this.saveLetslogicApiKeyFromModal()
         })
 
-        document.getElementById("contextCopySnapshot")?.addEventListener("click", (e: Event) => {
-            e.stopPropagation()
-            if (this.contextMenuSnapshot) {
-                this.app.copyMovesToClipboard(this.contextMenuSnapshot.lurd)
+        // Pressing Enter inside the input also saves the key
+        this.letslogicApiKeyInput?.addEventListener("keydown", (event: KeyboardEvent) => {
+            if (event.key === "Enter") {
+                event.preventDefault()
+                this.saveLetslogicApiKeyFromModal()
             }
-            this.closeSnapshotContextMenu()
+        })
+    }
+
+    /**
+     * Initializes the Letslogic progress modal (title, status line, log, close button).
+     * The modal is used to show live progress during solution submission.
+     */
+    private addLetslogicProgressModalListeners(): void {
+        if (!this.letslogicProgressModal) {
+            return
+        }
+
+        const $modal = ($("#letslogicProgressModal") as any)
+
+        // Configure Fomantic modal
+        $modal.modal({
+            autofocus: false,
+            onShow:   () => { GUI.isModalDialogShown = true },
+            onHidden: () => { GUI.isModalDialogShown = false }
         })
 
-        document.getElementById("contextDeleteSnapshot")?.addEventListener("click", (e: Event) => {
-            e.stopPropagation()
-            if (this.contextMenuSnapshot) {
-                this.app.deleteSnapshot(this.contextMenuSnapshot)
-            }
-            this.closeSnapshotContextMenu()
+        // Close button: simply hide the modal
+        this.letslogicProgressCloseButton?.addEventListener("click", () => {
+            $modal.modal("hide")
         })
+    }
+
+    /**
+     * Reads the key from the modal input, stores it in Settings and closes the modal.
+     */
+    private saveLetslogicApiKeyFromModal(): void {
+        if (!this.letslogicApiKeyInput) {
+            return
+        }
+
+        const trimmed = this.letslogicApiKeyInput.value.trim()
+        Settings.letslogicApiKey = trimmed
+
+        if (trimmed.length > 0) {
+            this.setStatusText("Letslogic API key has been saved.")
+        } else {
+            this.setStatusText("Letslogic API key has been cleared.")
+        }
+
+        ($("#letslogicApiKeyModal") as any).modal("hide")
     }
 
     // ------------------------------------------------------------------------
     // Graphic size / Canvas size
     // ------------------------------------------------------------------------
 
-    /** Adjusts the current graphic size based on settings and current puzzle board size. */
-    private adjustNewGraphicSize(): void {
-
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
-        const newGraphicSize = Settings.graphicSize === "auto"
-            ? this.getMaximalGraphicSize()
-            : +Settings.graphicSize
-
-        this.graphicDisplaySize = newGraphicSize
-
-        // Ensure main UI width matches board width
-        this.toolbarButtons.style.width = (this.board.width * newGraphicSize) + "px"
+    /** Sets a new graphic size for the board display. */
+    private setNewGraphicSize(selectedGraphicSize: string): void {
+        Settings.graphicSize = selectedGraphicSize
+        this.boardRenderer.adjustNewGraphicSize()
+        this.boardRenderer.restartAnimations()
+        this.updateCanvas()
     }
 
-    /** Returns the maximum graphic size that fits within the canvas. */
-    private getMaximalGraphicSize(): number {
-
-        const maxWidth  = Math.floor(this.canvas.width  / this.board.width)
-        const maxHeight = Math.floor(this.canvas.height / this.board.height)
-        const maxGraphicSizeForWindow = Math.min(maxWidth, maxHeight)
-
-        const MINIMUM_GRAPHIC_SIZE = 16
-        const MAXIMUM_GRAPHIC_SIZE = Math.min(64, this.skin.getImageSize())
-
-        return Utilities.coerceIn(maxGraphicSizeForWindow, MINIMUM_GRAPHIC_SIZE, MAXIMUM_GRAPHIC_SIZE)
-    }
-
-    /** Sets canvas size so it fits within the window with a margin. */
-    private adjustCanvasSize() {
-        const canvasRect = this.canvas.getBoundingClientRect()
-
-        const MARGIN = 32
-
-        const availableHorizontalSize = window.innerWidth  - canvasRect.left - MARGIN
-        const availableVerticalSize   = window.innerHeight - canvasRect.top  - MARGIN
-
-        this.canvas.width  = availableHorizontalSize
-        this.canvas.height = availableVerticalSize
-    }
-
-    private mouseScroll(event: WheelEvent) {
+    private mouseScroll(event: WheelEvent): void {
         if (event.deltaY < 0) {
             this.doAction(Action.redo)
         } else if (event.deltaY > 0) {
@@ -915,22 +864,23 @@ export class GUI {
     // ------------------------------------------------------------------------
 
     /** Shows the "How to play" modal dialog. */
-    private showHowToPlay() {
+    private showHowToPlay(): void {
         ($("#showHowToPlay") as any).modal({
             onShow:   () => { GUI.isModalDialogShown = true },
             onHidden: () => { GUI.isModalDialogShown = false }
         }).modal("show")
     }
 
-    /** Shows or hides the snapshot list sidebar. */
-    private static setSnapshotListVisible(visible: boolean) {
+    /** Shows or hides the snapshot list sidebar (Fomantic sidebar). */
+    private setSnapshotListVisible(visible: boolean): void {
         const sidebar = ($("#snapshotSidebar") as any)
 
         // Initialize sidebar behavior
         sidebar.sidebar({
             dimPage: false,
             closable: false,
-            context: $("#pusher")
+            onVisible: this.recalcLayoutAfterSidebarChange,
+            onHidden: this.recalcLayoutAfterSidebarChange
         })
 
         if (visible) {
@@ -940,60 +890,37 @@ export class GUI {
         }
     }
 
-    /** Toggles delete mode for snapshots/solutions. */
-    private toggleDeleteSnapshotMode(): void {
-        this.isDeleteSnapshotMode = !this.isDeleteSnapshotMode
+    /** Toggles the snapshot list visibility and saves the setting. */
+    private toggleSnapshotListInternal(): void {
+        const newValue = !Settings.showSnapshotListFlag
+        Settings.showSnapshotListFlag = newValue
+        this.showSnapshotListCheckbox.checked = newValue
+        this.setSnapshotListVisible(newValue)
 
-        if (this.isDeleteSnapshotMode) {
-            this.snapshotSidebar.classList.add("delete-mode")
-            this.deleteSnapshotButton.classList.add("red")
-            this.deleteSnapshotButton.innerHTML = '<i class="check icon"></i> Done deleting'
-        } else {
-            this.snapshotSidebar.classList.remove("delete-mode")
-            this.deleteSnapshotButton.classList.remove("red")
-            this.deleteSnapshotButton.innerHTML = '<i class="trash icon"></i> Delete snapshots'
-        }
+        // Width/layout changed
+        this.boardRenderer.adjustCanvasSize()
+        this.boardRenderer.adjustNewGraphicSize()
+        this.updateCanvas()
     }
 
-    // ------------------------------------------------------------------------
-    // Snapshot/Solution filter
-    // ------------------------------------------------------------------------
-
-    /** Toggles visibility of solution items in the snapshot list. */
-    private toggleSolutionFilter(): void {
-        this.showSolutions = !this.showSolutions
-        this.updateFilterButtonState(this.filterSolutionsButton, this.showSolutions)
-        this.applySnapshotFilters()
+    /** Updates the background color and clears any background image. */
+    private static setNewBackgroundColor(backgroundColor: string): void {
+        Settings.backgroundColor = backgroundColor
+        Settings.backgroundImageName = ""
+        document.body.setAttribute(
+            "style",
+            `background-color: ${backgroundColor} !important; overflow: hidden;`
+        )
     }
 
-    /** Toggles visibility of snapshot items in the snapshot list. */
-    private toggleSnapshotFilter(): void {
-        this.showSnapshots = !this.showSnapshots
-        this.updateFilterButtonState(this.filterSnapshotsButton, this.showSnapshots)
-        this.applySnapshotFilters()
-    }
-
-    private updateFilterButtonState(button: HTMLButtonElement, active: boolean): void {
-        if (active) {
-            button.classList.add("primary", "active")
-            button.classList.remove("basic")
-        } else {
-            button.classList.remove("primary", "active")
-            button.classList.add("basic")
-        }
-    }
-
-    /** Applies the current filter state to all snapshot/solution items. */
-    private applySnapshotFilters(): void {
-        const items = this.snapshotList.querySelectorAll(".item.solution, .item.snapshot") as NodeListOf<HTMLElement>
-
-        items.forEach(item => {
-            if (item.classList.contains("solution")) {
-                item.style.display = this.showSolutions ? "" : "none"
-            } else if (item.classList.contains("snapshot")) {
-                item.style.display = this.showSnapshots ? "" : "none"
-            }
-        })
+    /** Sets a new background image. */
+    private static setBackgroundImage(imageFileName: string): void {
+        Settings.backgroundImageName = imageFileName
+        document.body.setAttribute(
+            "style",
+            `background-image: url(/resources/backgroundImages/${imageFileName});` +
+            "background-size: 100% 100%; overflow: hidden;"
+        )
     }
 
     // ------------------------------------------------------------------------
@@ -1003,7 +930,7 @@ export class GUI {
     /**
      * Called when the user selects a different collection in the dropdown.
      */
-    private newCollectionSelected() {
+    private newCollectionSelected(): void {
 
         const puzzleCollectionName = this.collectionSelector.value
 
@@ -1035,7 +962,7 @@ export class GUI {
      * When the user has passed a puzzle via URL parameter an extra entry is added.
      * This method sets that puzzle as the only entry in a temporary collection.
      */
-    private setUserPuzzleForPlaying(boardAsString: string) {
+    private setUserPuzzleForPlaying(boardAsString: string): void {
 
         const board = Board.createFromString(boardAsString)
         if (typeof board !== "string") {
@@ -1048,8 +975,11 @@ export class GUI {
     }
 
     /** Replaces the current puzzle collection with the given one and fills the puzzle selector. */
-    private setCollectionForPlaying(collection: Collection) {
+    private setCollectionForPlaying(collection: Collection): void {
         this.puzzleCollection = collection
+
+        // Inform the app about the current collection so it can submit all solutions for it.
+        this.app.setCurrentCollection(collection)
 
         while (this.puzzleSelector.options.length > 0) {
             this.puzzleSelector.options.remove(0)
@@ -1064,7 +994,7 @@ export class GUI {
     }
 
     /** Sets the selected puzzle in the collection as the active puzzle. */
-    private newPuzzleSelected() {
+    private newPuzzleSelected(): void {
         const rawValue = this.puzzleSelector.value
         const puzzleNumber = parseInt(rawValue.split(" - ").pop() ?? "1", 10)
 
@@ -1092,14 +1022,42 @@ export class GUI {
         this.app.setPuzzleForPlaying(puzzles[index])
     }
 
+    /** Selects the next puzzle in the current collection, if any. */
+    private selectNextPuzzle(): void {
+        if (!this.puzzleSelector || this.puzzleSelector.options.length === 0) {
+            return
+        }
+
+        const currentIndex = this.puzzleSelector.selectedIndex
+        const lastIndex    = this.puzzleSelector.options.length - 1
+
+        if (currentIndex < lastIndex) {
+            this.puzzleSelector.selectedIndex = currentIndex + 1
+            this.newPuzzleSelected()
+        }
+    }
+
+    /** Selects the previous puzzle in the current collection, if any. */
+    private selectPreviousPuzzle(): void {
+        if (!this.puzzleSelector || this.puzzleSelector.options.length === 0) {
+            return
+        }
+
+        const currentIndex = this.puzzleSelector.selectedIndex
+
+        if (currentIndex > 0) {
+            this.puzzleSelector.selectedIndex = currentIndex - 1
+            this.newPuzzleSelected()
+        }
+    }
+
     // ------------------------------------------------------------------------
-    // Snapshots / Solutions sidebar
+    // Snapshots / Solutions sidebar (delegated to SnapshotSidebarView)
     // ------------------------------------------------------------------------
 
     /** Removes all snapshot/solution items from the sidebar list. */
     clearSnapshotList(): void {
-        const items = this.snapshotList.querySelectorAll(".item")
-        items.forEach(item => item.remove())
+        this.snapshotSidebarView.clear()
     }
 
     /**
@@ -1113,139 +1071,123 @@ export class GUI {
         bestByPush: Snapshot | null,
         bestByMove: Snapshot | null
     ): void {
-
-        this.clearSnapshotList()
-
-        const isBestPush = (s: Snapshot) =>
-            bestByPush != null && s.uniqueID === bestByPush.uniqueID
-        const isBestMove = (s: Snapshot) =>
-            bestByMove != null && s.uniqueID === bestByMove.uniqueID
-
-        // 1) All solutions first (with possible highlighting)
-        for (const solution of orderedSolutions) {
-            this.addSnapshotListItem(
-                solution,
-                isBestPush(solution),
-                isBestMove(solution)
-            )
-        }
-
-        // 2) Then all snapshots
-        for (const snapshot of snapshots) {
-            this.addSnapshotListItem(snapshot, false, false)
-        }
-
-        // Apply current filters (Solutions/Snapshots toggles)
-        this.applySnapshotFilters()
+        this.snapshotSidebarView.renderSnapshotList(
+            orderedSolutions,
+            snapshots,
+            bestByPush,
+            bestByMove
+        )
     }
 
-    /**
-     * Backwards compatible wrapper – simply appends one entry without
-     * marking "best" solutions. Still used in some places.
-     */
-    updateSnapshotList(snapshot: Snapshot): void {
-        this.addSnapshotListItem(snapshot, false, false)
-        this.applySnapshotFilters()
-    }
+    // ------------------------------------------------------------------------
+    // Letslogic progress integration
+    // ------------------------------------------------------------------------
 
     /**
-     * Creates a single DOM list item for the given snapshot/solution
-     * and appends it to the sidebar list.
+     * Creates a LetslogicProgressCallbacks implementation that updates the
+     * "Letslogic progress" modal in the GUI.
      *
-     * @param isBestByPush  true if this snapshot is the best solution by pushes
-     * @param isBestByMove  true if this snapshot is the best solution by moves
+     * SokobanApp can pass the returned callbacks object to LetslogicService so that
+     * every submission (single puzzle or full collection) becomes visible to the user.
+     *
+     * Example usage in SokobanApp:
+     *   const progress = this.gui.createLetslogicProgressCallbacks("currentPuzzle")
+     *   await this.letslogicService.submitCurrentPuzzle(this.puzzle, progress)
      */
-    private addSnapshotListItem(
-        snapshot: Snapshot,
-        isBestByPush: boolean,
-        isBestByMove: boolean
-    ): void {
+    public createLetslogicProgressCallbacks(
+        scope: "currentPuzzle" | "collection"
+    ): LetslogicProgressCallbacks {
 
-        const isSolution = snapshot instanceof Solution
-        const cssClass   = isSolution ? "solution" : "snapshot"
+        const $modal = this.letslogicProgressModal
+            ? ($("#letslogicProgressModal") as any)
+            : null
 
-        const snapshotItem = document.createElement("div")
-        snapshotItem.classList.add("item", cssClass)
-        snapshotItem.id = "snapshot" + snapshot.uniqueID
-
-        if (isSolution && (isBestByPush || isBestByMove)) {
-            snapshotItem.classList.add("best-solution")
-        }
-
-        // Fomantic-style item: icon + content (header + description)
-        const icon = document.createElement("i")
-        icon.classList.add(isSolution ? "star" : "camera", "icon")
-
-        // Highlight icon for best solutions
-        if (isSolution && (isBestByPush || isBestByMove)) {
-            icon.classList.add("yellow")
-        }
-
-        const contentDiv = document.createElement("div")
-        contentDiv.classList.add("content")
-
-        const headerDiv = document.createElement("div")
-        headerDiv.classList.add("header")
-
-        if (isSolution) {
-            if (isBestByPush && isBestByMove) {
-                headerDiv.innerText = "Best solution (moves & pushes)"
-            } else if (isBestByPush) {
-                headerDiv.innerText = "Best solution (pushes)"
-            } else if (isBestByMove) {
-                headerDiv.innerText = "Best solution (moves)"
-            } else {
-                headerDiv.innerText = "Solution"
+        /**
+         * Clears all existing log lines from the progress log container.
+         */
+        const resetLog = () => {
+            if (this.letslogicProgressLog) {
+                this.letslogicProgressLog.innerHTML = ""
             }
-        } else {
-            headerDiv.innerText = "Snapshot"
         }
 
-        const descriptionDiv = document.createElement("div")
-        descriptionDiv.classList.add("description")
-        descriptionDiv.innerText = `${snapshot.moveCount} moves / ${snapshot.pushCount} pushes`
+        /**
+         * Appends a single line to the progress log container.
+         * Lines containing "-> ERROR" (case-insensitive) are rendered in red.
+         * Lines containing "-> OK"    (case-insensitive) are rendered in green.
+         * All other lines use the default styling.
+         */
+        const appendLineInternal = (line: string) => {
+            if (!this.letslogicProgressLog) return
 
-        contentDiv.appendChild(headerDiv)
-        contentDiv.appendChild(descriptionDiv)
+            const container = this.letslogicProgressLog
 
-        // Delete icon (X) on the right side
-        const deleteIcon = document.createElement("i")
-        deleteIcon.classList.add("close", "icon", "snapshot-delete-icon")
+            const div = document.createElement("div")
+            div.classList.add("letslogic-progress-log-line")
 
-        // Clicking delete icon should NOT trigger the double-click load.
-        deleteIcon.addEventListener("click", (e: MouseEvent) => {
-            e.stopPropagation()
-            this.app.deleteSnapshot(snapshot)
-        })
+            const normalized = line.toLowerCase()
 
-        // Right-click = open context menu for this snapshot/solution
-        snapshotItem.addEventListener("contextmenu", (event: MouseEvent) => {
-            event.preventDefault()
-            event.stopPropagation()
+            if (normalized.includes("-> error")) {
+                div.classList.add("error")
+            } else if (normalized.includes("-> ok")) {
+                div.classList.add("success")
+            }
 
-            this.contextMenuSnapshot = snapshot
-            this.openSnapshotContextMenu(event.clientX, event.clientY)
-        })
+            div.textContent = line
 
-        snapshotItem.appendChild(icon)
-        snapshotItem.appendChild(contentDiv)
-        snapshotItem.appendChild(deleteIcon)
+            container.appendChild(div)
+            container.scrollTop = container.scrollHeight
+        }
 
-        // Double-click loads this snapshot / solution on the board (not a "replay" animation).
-        snapshotItem.addEventListener("dblclick", () => {
-            this.app.setSnapshot(snapshot)
-        })
+        return {
+            openModal: (title: string) => {
+                if (!this.letslogicProgressModal || !$modal) {
+                    // Fallback: if the modal does not exist, only update the status bar
+                    this.setStatusText(title)
+                    return
+                }
 
-        this.snapshotList.appendChild(snapshotItem)
+                if (this.letslogicProgressTitle) {
+                    this.letslogicProgressTitle.textContent = title
+                }
 
-        ;(($("#" + snapshotItem.id) as any)).transition("jiggle", "0.5s")
-    }
+                if (this.letslogicProgressStatus) {
+                    this.letslogicProgressStatus.textContent = ""
+                }
 
-    /** Removes the given snapshot/solution item from the sidebar list. */
-    removeSnapshotFromList(snapshot: Snapshot): void {
-        const item = document.getElementById("snapshot" + snapshot.uniqueID)
-        if (item) {
-            item.remove()
+                resetLog()
+
+                $modal.modal("show")
+            },
+
+            setStatus: (status: string) => {
+                if (this.letslogicProgressStatus) {
+                    this.letslogicProgressStatus.textContent = status
+                } else {
+                    // Fallback to the status bar
+                    this.setStatusText(status)
+                }
+            },
+
+            appendLine: (line: string) => {
+                appendLineInternal(line)
+            },
+
+            finish: (finalStatus: string) => {
+                if (this.letslogicProgressStatus) {
+                    this.letslogicProgressStatus.textContent = finalStatus
+                } else {
+                    this.setStatusText(finalStatus)
+                }
+
+                // Do not auto-close the modal; the user can read the log and close it manually.
+                appendLineInternal("")
+                appendLineInternal(
+                    scope === "collection"
+                        ? "Collection submission finished."
+                        : "Submission finished."
+                )
+            }
         }
     }
 
@@ -1257,7 +1199,7 @@ export class GUI {
      * Handles an action triggered by the GUI.
      * If this GUI cannot handle the action itself, it forwards it to the app.
      */
-    private doAction(action: Action) {
+    private doAction(action: Action): void {
 
         switch (action) {
             case Action.hideWalls:
@@ -1286,11 +1228,11 @@ export class GUI {
                 break
 
             case Action.toggleSnapshotList:
-                this.toggleSnapshotList()
+                this.toggleSnapshotListInternal()
                 break
 
             case Action.toggleDeleteSnapshotMode:
-                this.toggleDeleteSnapshotMode()
+                this.snapshotSidebarView.toggleDeleteMode()
                 break
 
             case Action.collectionSelected:
@@ -1301,146 +1243,43 @@ export class GUI {
                 this.newPuzzleSelected()
                 break
 
+            case Action.nextPuzzle:
+                this.selectNextPuzzle()
+                break
+
+            case Action.previousPuzzle:
+                this.selectPreviousPuzzle()
+                break
+
             case Action.showAnimationsCheckbox:
                 Settings.showAnimationFlag = this.showAnimationsCheckbox.checked
-                this.restartAnimations()
-                this.showAnimations()
+                this.boardRenderer.restartAnimations()
                 this.updateCanvas()
                 break
 
+            case Action.setLetslogicApiKey:
+                this.promptForLetslogicApiKey()
+                break
+
             default:
-                // All other actions (moves, undo/redo, clipboard, snapshots) are handled by the app.
+                // All other actions (moves, undo/redo, clipboard, snapshots, Letslogic submissions) are handled by the app.
                 this.app.doAction(action)
         }
     }
 
-    /** Toggles the snapshot list visibility and saves the setting. */
-    private toggleSnapshotList(): void {
-        const newValue = !Settings.showSnapshotListFlag
-        Settings.showSnapshotListFlag = newValue
-        this.showSnapshotListCheckbox.checked = newValue
-        GUI.setSnapshotListVisible(newValue)
-    }
-
     /**
-     * If any animations are running, stop and restart them so they
-     * immediately use new delay values and skin graphics.
+     * Opens the Letslogic API key modal so the user can enter the key.
+     * The modal contains a clickable link to the Letslogic preferences page.
      */
-    private restartAnimations() {
-        if (this.isShowPlayerSelectedAnimationActivated) {
-            this.isShowPlayerSelectedAnimationActivated = false
-            this.showAnimations()
-        }
-        if (this.isShowBoxSelectedAnimationActivated) {
-            this.isShowBoxSelectedAnimationActivated = false
-            this.showAnimations()
-        }
-    }
-
-    /** Sets a new graphic size for the board display. */
-    private setNewGraphicSize(selectedGraphicSize: string) {
-        Settings.graphicSize = selectedGraphicSize
-        this.adjustNewGraphicSize()
-        this.restartAnimations()
-        this.showAnimations()
-        this.updateCanvas()
-    }
-
-    /** Updates the background color and clears any background image. */
-    private static setNewBackgroundColor(backgroundColor: string) {
-        Settings.backgroundColor = backgroundColor
-        Settings.backgroundImageName = ""
-        document.body.setAttribute(
-            "style",
-            `background-color: ${backgroundColor} !important; overflow: hidden;`
-        )
-    }
-
-    /** Sets a new background image. */
-    private static setBackgroundImage(imageFileName: string) {
-        Settings.backgroundImageName = imageFileName
-        document.body.setAttribute(
-            "style",
-            `background-image: url(/resources/backgroundImages/${imageFileName});` +
-            "background-size: 100% 100%; overflow: hidden;"
-        )
-    }
-
-    // ------------------------------------------------------------------------
-    // Context menu for snapshots/solutions
-    // ------------------------------------------------------------------------
-
-    /** Opens the snapshot/solution context menu at the given screen coordinates. */
-    private openSnapshotContextMenu(x: number, y: number): void {
-        if (!this.snapshotContextMenu) return
-
-        // Update labels so they match the type (solution vs. snapshot).
-        this.updateContextMenuLabels()
-
-        this.snapshotContextMenu.style.display = "block"
-
-        // Initial position at cursor
-        this.snapshotContextMenu.style.left = `${x}px`
-        this.snapshotContextMenu.style.top  = `${y}px`
-
-        const rect = this.snapshotContextMenu.getBoundingClientRect()
-
-        let left = rect.left
-        let top  = rect.top
-
-        // Adjust if the menu goes out of the viewport
-        if (rect.right > window.innerWidth) {
-            left = Math.max(0, window.innerWidth - rect.width - 8)
-        }
-        if (rect.bottom > window.innerHeight) {
-            top = Math.max(0, window.innerHeight - rect.height - 8)
-        }
-
-        this.snapshotContextMenu.style.left = `${left}px`
-        this.snapshotContextMenu.style.top  = `${top}px`
-    }
-
-    /**
-     * Updates the context menu labels according to whether the selected item
-     * is a solution or a normal snapshot.
-     *
-     * This is purely cosmetic – the behavior is always:
-     *  - Load position on board
-     *  - Copy LURD to clipboard
-     *  - Delete snapshot/solution
-     */
-    private updateContextMenuLabels(): void {
-        if (!this.contextMenuSnapshot) {
+    private promptForLetslogicApiKey(): void {
+        if (!this.letslogicApiKeyModal || !this.letslogicApiKeyInput) {
+            console.warn("Letslogic API key modal elements not found in the DOM.")
             return
         }
 
-        const isSolution = this.contextMenuSnapshot instanceof Solution
+        // Pre-fill with the current value (if any)
+        this.letslogicApiKeyInput.value = Settings.letslogicApiKey || "";
 
-        const setItem    = document.getElementById("contextSetSnapshot")
-        const copyItem   = document.getElementById("contextCopySnapshot")
-        const deleteItem = document.getElementById("contextDeleteSnapshot")
-
-        if (setItem) {
-            setItem.innerHTML = `<i class="play icon"></i> ${
-                isSolution ? "Load solution on board" : "Load snapshot on board"
-            }`
-        }
-        if (copyItem) {
-            copyItem.innerHTML = `<i class="copy icon"></i> ${
-                isSolution ? "Copy solution to clipboard" : "Copy snapshot to clipboard"
-            }`
-        }
-        if (deleteItem) {
-            deleteItem.innerHTML = `<i class="trash icon"></i> ${
-                isSolution ? "Delete solution" : "Delete snapshot"
-            }`
-        }
-    }
-
-    /** Closes the snapshot/solution context menu. */
-    private closeSnapshotContextMenu(): void {
-        if (!this.snapshotContextMenu) return
-        this.snapshotContextMenu.style.display = "none"
-        this.contextMenuSnapshot = null
+        ($("#letslogicApiKeyModal") as any).modal("show")
     }
 }

@@ -17,6 +17,18 @@ interface StoredSnapshotDTO {
     playerLineCount: number
 }
 
+/**
+ * DTO for Letslogic submissions.
+ * One entry represents a solution that has been successfully submitted
+ * for a specific (apiKey, letslogicId) pair.
+ */
+interface StoredSubmittedSolutionDTO {
+    apiKey: string
+    letslogicId: number
+    moveCount: number
+    pushCount: number
+}
+
 export class DataStorage {
 
     static exportDatabaseContentToFile() {
@@ -52,6 +64,15 @@ export class DataStorage {
     }
 
     /**
+     * Returns the storage key for Letslogic submissions for the given API key and Letslogic ID.
+     * We hash the API key for the key string, but the plain key is still stored in the value.
+     */
+    private static getLetslogicStorageKey(apiKey: string, letslogicId: number): string {
+        const apiKeyHash = DataStorage.hashString(apiKey)
+        return `letslogic:${apiKeyHash}:${letslogicId}`
+    }
+
+    /**
      * Simple deterministic hash function for strings.
      * Not cryptographically secure, but fine for keying.
      */
@@ -69,9 +90,9 @@ export class DataStorage {
      * Stores a snapshot or solution for the given board.
      * If an entry with the same LURD and type already exists, it is not added again.
      *
-     * ➜ Perfekt für Auto-Save:
-     *    doppelte Lösungen werden stillschweigend ignoriert,
-     *    es gibt hier keinerlei UI-Meldungen.
+     * ➜ Perfect for auto-save:
+     *    duplicate solutions are silently ignored,
+     *    there is no UI message here.
      */
     static async storeSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
         const key = this.getSnapshotStorageKey(board)
@@ -82,7 +103,7 @@ export class DataStorage {
 
         // Duplicate check (LURD + isSolution)
         if (existing.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
-            return // Already stored – no message, einfach abbrechen.
+            return // Already stored – do nothing.
         }
 
         existing.push({
@@ -116,12 +137,12 @@ export class DataStorage {
 
         return stored.map(dto => {
             const metrics = new Metrics()
-            metrics.moveCount          = dto.moveCount
-            metrics.pushCount          = dto.pushCount
-            metrics.boxLineCount       = dto.boxLineCount
-            metrics.boxChangeCount     = dto.boxChangeCount
-            metrics.pushingSessionCount= dto.pushingSessionCount
-            metrics.playerLineCount    = dto.playerLineCount
+            metrics.moveCount           = dto.moveCount
+            metrics.pushCount           = dto.pushCount
+            metrics.boxLineCount        = dto.boxLineCount
+            metrics.boxChangeCount      = dto.boxChangeCount
+            metrics.pushingSessionCount = dto.pushingSessionCount
+            metrics.playerLineCount     = dto.playerLineCount
 
             const snap = dto.isSolution
                 ? new Solution(dto.lurd, metrics)
@@ -147,5 +168,86 @@ export class DataStorage {
         )
 
         await localforage.setItem(key, filtered)
+    }
+
+    // -------------------------------------------------------------------------
+    // Letslogic – submitted solutions storage
+    // -------------------------------------------------------------------------
+
+    /**
+     * Loads all previously submitted solutions for the given (apiKey, letslogicId) pair.
+     */
+    static async loadSubmittedLetslogicSolutions(
+        apiKey: string,
+        letslogicId: number
+    ): Promise<StoredSubmittedSolutionDTO[]> {
+
+        const key = this.getLetslogicStorageKey(apiKey, letslogicId)
+        const stored = (await localforage.getItem<StoredSubmittedSolutionDTO[]>(key)) ?? []
+        return stored
+    }
+
+    /**
+     * Stores a successfully submitted solution for the given (apiKey, letslogicId) pair.
+     * The plain apiKey and letslogicId are stored in the DTO, as requested.
+     */
+    static async storeSubmittedLetslogicSolution(
+        apiKey: string,
+        letslogicId: number,
+        moveCount: number,
+        pushCount: number
+    ): Promise<void> {
+
+        const key = this.getLetslogicStorageKey(apiKey, letslogicId)
+        const existing = (await localforage.getItem<StoredSubmittedSolutionDTO[]>(key)) ?? []
+
+        existing.push({
+            apiKey,
+            letslogicId,
+            moveCount,
+            pushCount
+        })
+
+        await localforage.setItem(key, existing)
+    }
+
+    /**
+     * Stores multiple snapshots/solutions for the given board in a single
+     * read-modify-write operation.
+     *
+     * This avoids race conditions that can occur when calling storeSnapshot
+     * many times in parallel for the same board.
+     */
+    static async storeSnapshotsBulk(board: Board, snapshots: (Snapshot | Solution)[]): Promise<void> {
+        if (snapshots.length === 0) {
+            return
+        }
+
+        const key = this.getSnapshotStorageKey(board)
+        const existing = (await localforage.getItem<StoredSnapshotDTO[]>(key)) ?? []
+
+        for (const snapshot of snapshots) {
+            const isSolution = snapshot instanceof Solution
+
+            // Duplicate check (LURD + isSolution)
+            if (existing.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
+                continue
+            }
+
+            existing.push({
+                lurd: snapshot.lurd,
+                name: snapshot.name,
+                notes: snapshot.notes,
+                isSolution,
+                moveCount: snapshot.moveCount,
+                pushCount: snapshot.pushCount,
+                boxLineCount: snapshot.boxLineCount,
+                boxChangeCount: snapshot.boxChangeCount,
+                pushingSessionCount: snapshot.pushingSessionCount,
+                playerLineCount: snapshot.playerLineCount
+            })
+        }
+
+        await localforage.setItem(key, existing)
     }
 }

@@ -1,39 +1,63 @@
-import {SokobanApp} from "./app/SokobanApp"
-import {URLParameterParser} from "./URLParameterParser"
-import {Puzzle} from "./Sokoban/domainObjects/Puzzle";
+import { SokobanApp } from "./app/SokobanApp"
+import { URLParameterParser } from "./URLParameterParser"
+import { Puzzle } from "./Sokoban/domainObjects/Puzzle"
 
 const app = new SokobanApp()
-const startPuzzleViaURL = URLParameterParser.parsePuzzleFromURLParameter()
 
-app.init().then( () => {
-    if(startPuzzleViaURL != null) {
-        window.history.replaceState('', 'Sokoban', location.origin) // delete the parameters from the URL
+// Expose the app instance for debugging in the browser console.
+// This allows you to type "sokobanApp" in the browser console.
+;(window as any).sokobanApp = app
 
-        startPuzzleViaURL.title = "Sokoban Statistics Puzzle"
-        addUserPuzzleEntry(startPuzzleViaURL) // add the puzzle as part of a new collection to the gui
+async function startApp(): Promise<void> {
+    try {
+        // Initialize the app and parse the URL parameter in parallel.
+        const [_, startPuzzleViaURL] = await Promise.all([
+            app.init(),
+            URLParameterParser.parsePuzzleFromURLParameter()
+        ])
 
-        // Fake a selection of a new puzzle collection to be played so the default start puzzle is loaded.
-        document.getElementById("collectionSelector")!!.dispatchEvent(new CustomEvent('change'))
+        const collectionSelector =
+            document.getElementById("collectionSelector") as HTMLSelectElement | null
+
+        if (!collectionSelector) {
+            console.error("Element with id 'collectionSelector' not found.")
+            return
+        }
+
+        if (startPuzzleViaURL) {
+            // Remove URL parameters from the address bar.
+            window.history.replaceState("", "Sokoban", location.origin)
+
+            // Set a default title if none is provided.
+            if (!startPuzzleViaURL.title || startPuzzleViaURL.title.trim().length === 0) {
+                startPuzzleViaURL.title = "Sokoban Statistics Puzzle"
+            }
+
+            // Add the puzzle as a new "collection" entry to the UI.
+            addUserPuzzleEntry(startPuzzleViaURL, collectionSelector)
+        }
+
+        // Trigger the "change" event so that the appropriate puzzle/collection
+        // is loaded (either the user puzzle or the default one).
+        collectionSelector.dispatchEvent(new CustomEvent("change"))
+    } catch (error) {
+        console.error("Failed to bootstrap Sokoban app:", error)
     }
-    else {
-        // Fake a selection of a new puzzle collection to be played so the default start puzzle is loaded.
-        document.getElementById("collectionSelector")!!.dispatchEvent(new CustomEvent('change'))
-    }
+}
 
+startApp()
 
-    // Expose the app instance for debugging in the browser console.
-    // This allows to type "sokobanApp" in the console of the browser to access the app instance.
-    ;(window as any).sokobanApp = app
-})
-
- /**
- * Adds a new entry to the list for the user puzzle.
+/**
+ * Adds a new entry to the list for the user puzzle as a separate "collection".
  */
-function addUserPuzzleEntry(puzzle: Puzzle) {
-    const userPuzzleCollectionName = document.createElement('option')
-    userPuzzleCollectionName.value = puzzle.board.getBoardAsString()
-    userPuzzleCollectionName.innerText = puzzle.title
-    const collectionSelector = document.getElementById("collectionSelector")!! as HTMLSelectElement
-    collectionSelector.replaceChildren(userPuzzleCollectionName, ...collectionSelector.children) // Add the new collection as first collection
+function addUserPuzzleEntry(puzzle: Puzzle, collectionSelector: HTMLSelectElement): void {
+    const userPuzzleOption = document.createElement("option")
+
+    // Store the board string as value so it can be re-parsed later if needed.
+    userPuzzleOption.value = puzzle.board.getBoardAsString()
+    userPuzzleOption.innerText = puzzle.title
+
+    // Add the new collection as the first option.
+    collectionSelector.replaceChildren(userPuzzleOption, ...collectionSelector.children)
     collectionSelector.selectedIndex = 0
 }

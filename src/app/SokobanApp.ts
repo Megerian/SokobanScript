@@ -7,13 +7,16 @@ import { PlayerPathFinding } from "../services/pathFinding/PlayerPathFinding"
 import { BoxPathFinding } from "../services/pathFinding/BoxPathFinding"
 import { Settings } from "./Settings"
 import { Utilities } from "../Utilities/Utilities"
-import { PuzzleFormat } from "../Sokoban/PuzzleFormat"
 import { LURDVerifier } from "../services/lurdVerifier/LurdVerifier"
 import { Solution } from "../Sokoban/domainObjects/Solution"
 import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
 import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
 import { DataStorage } from "../storage/DataStorage"
 import { Messages } from "../gui/Messages"
+import { Collection } from "../Sokoban/domainObjects/Collection"
+import { LetslogicService } from "../services/letslogic/LetsLogicService"
+import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
+import { LURD_CHARS } from "../Sokoban/PuzzleFormat"
 
 export const NONE = -1
 
@@ -24,9 +27,19 @@ const enum MovementType {
     NONE = "None"
 }
 
+/**
+ * Main application controller for the Sokoban app.
+ *
+ * Responsibilities:
+ *  - holds current Board and Puzzle
+ *  - reacts to GUI actions (keyboard, mouse, menu)
+ *  - delegates to path finding, move history, storage and Letslogic service
+ *  - updates the GUI and plays sounds
+ */
 export class SokobanApp {
 
     private readonly gui: GUI
+    private readonly letslogicService = new LetslogicService()
 
     moves  = 0
     pushes = 0
@@ -37,12 +50,18 @@ export class SokobanApp {
     isPlayerSelected    = false
 
     /** Flag indicating whether the player is currently moving along an animated path. */
-    private isPlayerCurrentlyMoving = false
+    isPlayerCurrentlyMoving = false
 
     board: Board = Board.getDummyBoard()
 
-    /** The currently active puzzle (domain object is still called Puzzle). */
+    /** The currently active puzzle. */
     private puzzle: Puzzle = new Puzzle(this.board)
+
+    /**
+     * Currently active collection (set by the GUI),
+     * needed to enable "submit all collection solutions".
+     */
+    private currentCollection: Collection | null = null
 
     private playerPathFinding  = new PlayerPathFinding(this.board)
     private boxPathFinding     = new BoxPathFinding(this.board)
@@ -58,7 +77,7 @@ export class SokobanApp {
         this.gui = new GUI(this)
     }
 
-    /** Initialize the app. */
+    /** Initialize the app: storage, settings, GUI. */
     async init(): Promise<void> {
         DataStorage.init()
         await Settings.loadSettings()
@@ -72,16 +91,29 @@ export class SokobanApp {
     /**
      * Sets a given puzzle as the current playable puzzle.
      * This also resets move counters, history, path finding and snapshot/solution list.
+     *
+     * Additionally, all existing solutions/snapshots of the puzzle are stored
+     * in DataStorage (if not already present for this board).
      */
     setPuzzleForPlaying(puzzle: Puzzle): void {
 
         if (!puzzle) {
-            console.error("setPuzzleForPlaying called with undefined puzzle", this);
-            return;
+            console.error("setPuzzleForPlaying called with undefined puzzle", this)
+            return
         }
 
         // Store reference so snapshots/solutions are attached to the correct puzzle.
         this.puzzle = puzzle
+
+        // Persist all existing solutions/snapshots of this puzzle into DataStorage
+        // in a single bulk operation (avoids race conditions).
+        const existingSolutions = Array.from(this.puzzle.solutions.values())
+        const existingSnapshots = Array.from(this.puzzle.snapshots.values())
+
+        void DataStorage.storeSnapshotsBulk(
+            this.puzzle.board,
+            [...existingSolutions, ...existingSnapshots]
+        ).catch(error => console.error("Failed to store built-in snapshots/solutions", error))
 
         // Clone the board to avoid mutating the puzzle's original board.
         this.board = puzzle.board.clone()
@@ -114,13 +146,12 @@ export class SokobanApp {
             .then(stored => {
                 stored.forEach(snap => {
                     if (snap instanceof Solution) {
-                        this.addSolutionToPuzzle(snap, false)
+                        this.addSolutionToPuzzle(snap, false, false)      // no re-store
                     } else {
-                        this.addSnapshotToPuzzle(snap, false)
+                        this.addSnapshotToPuzzle(snap, false, false)      // no re-store
                     }
                 })
 
-                // Rebuild list after all stored items have been added
                 this.refreshSnapshotListInGUI()
             })
             .catch(error => console.error("Failed to load snapshots/solutions", error))
@@ -429,6 +460,7 @@ export class SokobanApp {
             this.board.playerPosition = newPlayerPosition
             this.moves++
 
+
             if (recordHistory) {
                 this.moveHistory.addMove(Directions.getMoveCharForDirection(direction))
             }
@@ -496,8 +528,6 @@ export class SokobanApp {
             this.pushes--
         }
 
-        // Move history has already been adjusted by the caller.
-
         if (withGUIUpdate) {
             if (doPull) {
                 this.gui.updateCanvasForPositions(boxPosition, currentPlayerPosition, newPlayerPosition)
@@ -558,13 +588,11 @@ export class SokobanApp {
             const direction         = Directions.getDirectionFromLURDChar(moveChar)
             const oppositeDirection = Directions.getOpposite(direction)
 
-            // false -> without GUI update; we update once at the end.
             this.movePlayerToDirectionUndo(oppositeDirection, Directions.isPushChar(moveChar), false)
 
             moveChar = this.moveHistory.undoMove()
         }
 
-        // According to Sokoban YASC "undo all" plays no sound.
         this.gui.updateCanvas()
         this.updateMovesPushesInGUI()
     }
@@ -580,7 +608,7 @@ export class SokobanApp {
         while (nextMoveChar != null) {
 
             const direction    = Directions.getDirectionFromLURDChar(nextMoveChar)
-            const movementType = this.movePlayerToDirection(direction, true, false) // recordHistory = false
+            const movementType = this.movePlayerToDirection(direction, true, false)
 
             if (movementType !== MovementType.NONE) {
                 lastMovementType = movementType
@@ -589,7 +617,6 @@ export class SokobanApp {
             nextMoveChar = this.moveHistory.redoMove()
         }
 
-        // According to Sokoban YASC play the sound for the last movement.
         if (lastMovementType !== MovementType.NONE) {
             SokobanApp.playSoundForMovementType(lastMovementType)
         }
@@ -614,8 +641,9 @@ export class SokobanApp {
             this.deselectPlayerAndBox()
         }
 
-        // When the puzzle is solved, block further play actions.
-        if (this.board.isSolved()) {
+        // When the puzzle is solved *after at least one move*, block further play actions.
+        // This allows playing "circular puzzles" which start with a solved state.
+        if (this.board.isSolved() && this.moves > 0) {
             switch (action) {
                 case Action.moveLeft:
                 case Action.moveRight:
@@ -627,15 +655,15 @@ export class SokobanApp {
         }
 
         switch (action) {
-            case Action.undoAll: this.undoAllMoves();               break
-            case Action.undo:    this.undoMove();                   break
-            case Action.redo:    this.redoMove();                   break
-            case Action.redoAll: this.redoAllMoves();               break
+            case Action.undoAll:                   this.undoAllMoves();               break
+            case Action.undo:                      this.undoMove();                   break
+            case Action.redo:                      this.redoMove();                   break
+            case Action.redoAll:                   this.redoAllMoves();               break
 
-            case Action.moveLeft:  this.doMove(LEFT);               break
-            case Action.moveRight: this.doMove(RIGHT);              break
-            case Action.moveUp:    this.doMove(UP);                 break
-            case Action.moveDown:  this.doMove(DOWN);               break
+            case Action.moveLeft:                  this.doMove(LEFT);                 break
+            case Action.moveRight:                 this.doMove(RIGHT);                break
+            case Action.moveUp:                    this.doMove(UP);                   break
+            case Action.moveDown:                  this.doMove(DOWN);                 break
 
             case Action.cellClicked:
                 this.cellClicked(this.gui.clickedPosition)
@@ -664,6 +692,19 @@ export class SokobanApp {
             case Action.saveSnapshot:
                 this.saveCurrentSnapshot()
                 break
+
+            // Letslogic actions: submitting the solutions.
+            case Action.submitLetslogicCurrentPuzzleSolutions: {
+                const progress = this.gui.createLetslogicProgressCallbacks("currentPuzzle")
+                void this.letslogicService.submitCurrentPuzzle(this.puzzle, progress)
+                break
+            }
+
+            case Action.submitLetslogicCollectionSolutions: {
+                const progress = this.gui.createLetslogicProgressCallbacks("collection")
+                void this.letslogicService.submitCurrentCollection(this.currentCollection, progress)
+                break
+            }
         }
     }
 
@@ -751,20 +792,42 @@ export class SokobanApp {
     }
 
     /**
-     * Imports a puzzle from a raw string (clipboard or file)
-     * and sets it as the current playable puzzle.
+     * Imports a puzzle from a raw text string.
+     *
+     * Behavior:
+     *  1) Try to parse the text as a full Sokoban collection via PuzzleCollectionIO.parsePuzzleCollection.
+     *     If at least one Puzzle is found, take the first one (including its built-in solutions/snapshots).
+     *  2) If no puzzle was found that way, fall back to parseSinglePuzzleWithMetadata
+     *     (board + ID/Title only, no LURDs).
+     *  3) On error (string result), show the "invalid board" dialog.
      */
     public importPuzzleFromString(rawPuzzleString: string): void {
 
-        const boardRows      = rawPuzzleString.trim().split("\n")
-        const validBoardRows = boardRows.filter(PuzzleFormat.isValidBoardRow)
-        const boardAsString  = validBoardRows.join("\n")
+        // 1) Try full collection parser first (boards + embedded solutions/snapshots).
+        try {
+            const puzzles = PuzzleCollectionIO.parsePuzzleCollection(rawPuzzleString)
 
-        const board = Board.createFromString(boardAsString)
-        if (typeof board === "string") {
-            // Show "invalid board" modal.
-            $("#boardAsString").html(validBoardRows.join("</br>"))
-            $("#boardErrorMessage").html(board);
+            if (puzzles && puzzles.length > 0) {
+                // If multiple puzzles are present, take the first one.
+                // (Could be extended later to choose by board or index.)
+                const puzzle = puzzles[0]
+                this.setPuzzleForPlaying(puzzle)
+                return
+            }
+        } catch (e) {
+            console.warn("parsePuzzleCollection failed for clipboard text, falling back to single-puzzle parser", e)
+        }
+
+        // 2) Fallback: single-puzzle parser (board + metadata only).
+        const result = PuzzleCollectionIO.parseSinglePuzzleWithMetadata(rawPuzzleString)
+
+        if (typeof result === "string") {
+            // Error message from the parser.
+            // Show the invalid board dialog with the raw text.
+            ($("#boardAsString") as any).html(
+                rawPuzzleString.replace(/\r/g, "").split("\n").join("</br>")
+            )
+            $("#boardErrorMessage").html(result);
 
             ($("#showInvalidBoard") as any).modal({
                 onShow:   () => { GUI.isModalDialogShown = true },
@@ -774,9 +837,7 @@ export class SokobanApp {
             return
         }
 
-        const puzzle = new Puzzle(board)
-        puzzle.title = "Imported puzzle"
-
+        const puzzle = result
         this.setPuzzleForPlaying(puzzle)
     }
 
@@ -787,9 +848,45 @@ export class SokobanApp {
     }
 
     // ---------------------------------------------------------------------
-    // Importing LURD as snapshot / solution
+    // Importing LURD as snapshot / solution (multi-LURD support)
     // ---------------------------------------------------------------------
 
+    /**
+     * Returns true if the given char is a valid LURD char.
+     * Uses the same definition as PuzzleCollectionIO (LURD_CHARS).
+     */
+    private isLurdChar(char: string): boolean {
+        return LURD_CHARS.includes(char)
+    }
+
+    /**
+     * Returns true if the given line contains ONLY LURD characters
+     * (ignoring surrounding whitespace).
+     */
+    private isLurdLine(line: string): boolean {
+        const trimmed = line.trim()
+        if (trimmed.length === 0) {
+            return false
+        }
+
+        for (const c of trimmed) {
+            if (!this.isLurdChar(c)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * Imports one or more LURD strings from the clipboard as snapshots/solutions.
+     *
+     * The clipboard text may contain:
+     *  - a single LURD string in one line
+     *  - multiple LURD strings, one per line
+     *  - multi-line LURD blocks (consecutive pure LURD lines are concatenated)
+     *
+     * All valid LURD blocks (for the current board) are verified and added.
+     */
     private async importLURDString(): Promise<void> {
 
         const string = await Utilities.getStringFromClipboard()
@@ -797,24 +894,107 @@ export class SokobanApp {
             return
         }
 
-        const trimmedString = string.trim()
-        const verifyResult  = this.lurdVerifier.verifyLURD(trimmedString)
+        const normalized = string.replace(/\r/g, "")
+        const lines      = normalized.split(/\n/)
 
-        if (verifyResult == null) {
-            this.showMessageInvalidLURDString(trimmedString)
+        const lurdStrings: string[] = []
+
+        // Group consecutive LURD-only lines into blocks (same logic as in PuzzleCollectionIO).
+        let i = 0
+        while (i < lines.length) {
+            if (!this.isLurdLine(lines[i])) {
+                i++
+                continue
+            }
+
+            const lurdParts: string[] = []
+            let j = i
+            while (j < lines.length && this.isLurdLine(lines[j])) {
+                lurdParts.push(lines[j].trim())
+                j++
+            }
+
+            const lurd = lurdParts.join("")
+            if (lurd.length > 0) {
+                lurdStrings.push(lurd)
+            }
+
+            i = j
+        }
+
+        // Fallback: if we did not detect any LURD blocks via line-based parsing,
+        // treat the entire trimmed string as a single LURD candidate (old behavior).
+        if (lurdStrings.length === 0) {
+            const trimmedString = normalized.trim()
+            if (trimmedString.length > 0) {
+                lurdStrings.push(trimmedString)
+            }
+        }
+
+        if (lurdStrings.length === 0) {
+            this.showMessageInvalidLURDString(normalized.trim())
             return
         }
 
-        if (verifyResult instanceof Solution) {
-            const hasBeenAdded = this.addSolutionToPuzzle(verifyResult)
-            if (hasBeenAdded) {
-                this.refreshSnapshotListInGUI()
+        let importedCount = 0
+        let firstInvalid: string | null = null
+
+        const newlyImportedSolutions: Solution[] = []
+        const newlyImportedSnapshots: Snapshot[] = []
+
+        for (const lurd of lurdStrings) {
+            const verifyResult = this.lurdVerifier.verifyLURD(lurd)
+
+            if (!verifyResult) {
+                if (!firstInvalid) {
+                    firstInvalid = lurd
+                }
+                continue
+            }
+
+            if (verifyResult instanceof Solution) {
+                // Add to puzzle, but do not persist immediately
+                const hasBeenAdded = this.addSolutionToPuzzle(verifyResult, false, false)
+                if (hasBeenAdded) {
+                    importedCount++
+                    newlyImportedSolutions.push(verifyResult)
+                }
+            } else {
+                // Snapshot
+                const hasBeenAdded = this.addSnapshotToPuzzle(verifyResult, false, false)
+                if (hasBeenAdded) {
+                    importedCount++
+                    newlyImportedSnapshots.push(verifyResult)
+                }
+            }
+        }
+
+        if (importedCount > 0) {
+            // Persist all newly imported items in a single bulk operation
+            try {
+                await DataStorage.storeSnapshotsBulk(
+                    this.puzzle.board,
+                    [...newlyImportedSolutions, ...newlyImportedSnapshots]
+                )
+            } catch (error) {
+                console.error("Failed to store imported LURDs in bulk", error)
+            }
+
+            this.refreshSnapshotListInGUI()
+
+            Messages.showSuccessMessage(
+                "Import successful",
+                `${importedCount} snapshot(s)/solution(s) imported from clipboard.`
+            )
+
+            if (firstInvalid) {
+                Messages.showWarningMessage(
+                    "Some LURD strings ignored",
+                    "One or more LURD strings were not valid for this puzzle and have been skipped."
+                )
             }
         } else {
-            const hasBeenAdded = this.addSnapshotToPuzzle(verifyResult)
-            if (hasBeenAdded) {
-                this.refreshSnapshotListInGUI()
-            }
+            this.showMessageInvalidLURDString(normalized.trim())
         }
     }
 
@@ -834,7 +1014,6 @@ export class SokobanApp {
             return
         }
 
-        // Let the LURDVerifier compute normalized LURD and metrics.
         const verified = this.lurdVerifier.verifyLURD(lurd)
         if (verified == null) {
             Messages.showErrorMessage(
@@ -861,9 +1040,14 @@ export class SokobanApp {
 
     /**
      * Adds the passed solution to the puzzle and shows a message (optional).
+     * Optionally persists the solution to DataStorage (default: true).
      * Returns true if adding the solution has been successful, false if it is a duplicate.
      */
-    private addSolutionToPuzzle(solution: Solution, showMessages: boolean = true): boolean {
+    private addSolutionToPuzzle(
+        solution: Solution,
+        showMessages: boolean = true,
+        persistToStorage: boolean = true
+    ): boolean {
 
         const hasBeenAdded = this.puzzle.addSolution(solution)
 
@@ -872,8 +1056,10 @@ export class SokobanApp {
                 Messages.showSuccessMessage("Solution added", "The solution has been added to the puzzle")
             }
 
-            DataStorage.storeSolution(this.puzzle.board, solution)
-                .catch(error => console.error("Failed to store solution", error))
+            if (persistToStorage) {
+                DataStorage.storeSolution(this.puzzle.board, solution)
+                    .catch(error => console.error("Failed to store solution", error))
+            }
         } else if (showMessages) {
             Messages.showWarningMessage(
                 "Duplicate solution",
@@ -886,9 +1072,14 @@ export class SokobanApp {
 
     /**
      * Adds the passed snapshot to the puzzle and shows a message (optional).
+     * Optionally persists the snapshot to DataStorage (default: true).
      * Returns true if adding the snapshot has been successful, false if it is a duplicate.
      */
-    private addSnapshotToPuzzle(snapshot: Snapshot, showMessages: boolean = true): boolean {
+    private addSnapshotToPuzzle(
+        snapshot: Snapshot,
+        showMessages: boolean = true,
+        persistToStorage: boolean = true
+    ): boolean {
 
         const hasBeenAdded = this.puzzle.addSnapshot(snapshot)
 
@@ -897,8 +1088,10 @@ export class SokobanApp {
                 Messages.showSuccessMessage("Snapshot added", "The snapshot has been added to the puzzle")
             }
 
-            DataStorage.storeSnapshot(this.puzzle.board, snapshot)
-                .catch(error => console.error("Failed to store snapshot/solution", error))
+            if (persistToStorage) {
+                DataStorage.storeSnapshot(this.puzzle.board, snapshot)
+                    .catch(error => console.error("Failed to store snapshot/solution", error))
+            }
         } else if (showMessages) {
             Messages.showWarningMessage(
                 "Duplicate snapshot",
@@ -933,7 +1126,7 @@ export class SokobanApp {
             bestByMove = sortedByMove[0]
         }
 
-        // Build ordered list: best-by-push, best-by-move (if different), then the rest
+        // Build ordered list: best-by-push, best-by-move (if different), then the rest.
         const orderedSolutions: Solution[] = []
         const seenIds = new Set<number>()
 
@@ -948,7 +1141,6 @@ export class SokobanApp {
         addIfNotSeen(bestByMove)
 
         const remaining = solutions.filter(s => !seenIds.has(s.uniqueID))
-        // You can change this to a different default ordering if you like
         remaining.sort((a, b) => a.createdDate - b.createdDate)
         orderedSolutions.push(...remaining)
 
@@ -982,7 +1174,6 @@ export class SokobanApp {
      */
     setSnapshot(snapshot: Snapshot): void {
 
-        // Suppress "puzzle solved" animation and auto-saving during loading.
         this.isRedoInProgress = true
 
         // 1) Reset the current board state via undo all.
@@ -1008,7 +1199,7 @@ export class SokobanApp {
                 break
             }
             const direction    = Directions.getDirectionFromLURDChar(char)
-            const movementType = this.movePlayerToDirection(direction, false, false) // no GUI update, no history
+            const movementType = this.movePlayerToDirection(direction, false, false)
 
             if (movementType === MovementType.NONE) {
                 break
@@ -1053,7 +1244,7 @@ export class SokobanApp {
             DataStorage.deleteSnapshot(this.puzzle.board, snapshot)
                 .catch(error => console.error("Failed to delete snapshot/solution", error))
 
-            // Rebuild the list so that "best" solution markers are updated
+            // Rebuild the list so that "best" solution markers are updated.
             this.refreshSnapshotListInGUI()
 
             if (snapshot instanceof Solution) {
@@ -1073,5 +1264,17 @@ export class SokobanApp {
                 "The snapshot/solution was not found for the current puzzle."
             )
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Collection reference (for Letslogic)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Sets the current collection that is used by the GUI.
+     * This is required so that we can submit all solutions for all puzzles in this collection.
+     */
+    setCurrentCollection(collection: Collection | null): void {
+        this.currentCollection = collection
     }
 }

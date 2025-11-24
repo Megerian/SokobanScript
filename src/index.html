@@ -74,7 +74,7 @@
 </div>
 
 <!-- Pusher: content that moves when the sidebar is visible -->
-<div id="pusher">
+<div id="pusher" class="pusher">
 
     <!-- Top menu bar -->
     <div class="ui top attached menu">
@@ -132,6 +132,7 @@
                             <div data-skinName="NightShift3"  class="item">NightShift3 by Gerry Wiseman</div>
                             <div data-skinName="SokoGems"     class="item">SokoGems by Gerry Wiseman</div>
                             <div data-skinName="KSokoban"     class="item">KSokoban by Anders Widell</div>
+                            <div data-skinName="KenBri"       class="item">KenBri by Kenney Vleugels & Brian Damgaard</div>
                             <div data-skinName="KSokoban2"    class="item active selected">
                                 KSokoban by Anders W./George Petrov
                             </div>
@@ -302,6 +303,25 @@
                 </div>
             </div>
 
+            <!-- Letslogic menu -->
+            <div class="ui simple dropdown item">
+                <i class="cloud upload icon"></i> Letslogic <i class="dropdown icon"></i>
+
+                <div class="menu">
+                    <div class="item" id="letslogicSetApiKey">
+                        <i class="key icon"></i> Set API key
+                    </div>
+
+                    <div class="item" id="letslogicSubmitCurrent">
+                        <i class="upload icon"></i> Submit solutions of current puzzle
+                    </div>
+
+                    <div class="item" id="letslogicSubmitCollection">
+                        <i class="upload icon"></i> Submit solutions of all collection puzzles
+                    </div>
+                </div>
+            </div>
+
             <!-- Info menu -->
             <div class="ui simple dropdown item">
                 <i class="info icon"></i> Info
@@ -317,6 +337,43 @@
                 </div>
             </div>
 
+            <!-- Modal: Letslogic API key -->
+            <div class="ui modal" id="letslogicApiKeyModal">
+                <div class="header">
+                    Letslogic API key
+                </div>
+
+                <div class="content">
+                    <p>
+                        Please enter your Letslogic API key.
+                    </p>
+                    <p>
+                        You can view and manage your API key on the
+                        <a href="https://www.letslogic.com/member/preferences"
+                           target="_blank"
+                           rel="noopener">
+                            Letslogic preferences page
+                        </a>.
+                    </p>
+
+                    <div class="ui form">
+                        <div class="field">
+                            <label for="letslogicApiKeyInput">API key</label>
+                            <input id="letslogicApiKeyInput"
+                                   type="text"
+                                   placeholder="Paste your Letslogic API key here">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <div class="ui deny button">Cancel</div>
+                    <div class="ui primary positive button" id="letslogicApiKeySaveButton">
+                        Save API key
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -329,29 +386,34 @@
                 <div class="card">
                     <div class="content">
                         <div class="ui form">
-                            <label for="collectionSelector">Collection:</label>
-                            <select class="ui search dropdown" id="collectionSelector">
-                                <option value="Aymeric du Peloux 1 Minicosmos.sok">Aymeric du Peloux 1 Minicosmos</option>
-                                <option value="Aymeric du Peloux 2 Microcosmos.sok">Aymeric du Peloux 2 Microcosmos</option>
-                                <option value="Aymeric du Peloux 3 Nabokosmos.sok">Aymeric du Peloux 3 Nabokosmos</option>
-                                <option value="Aymeric du Peloux 4 Picokosmos.sok">Aymeric du Peloux 4 Picokosmos</option>
-                                <option value="Aymeric du Peloux 5 Cosmopoly.sok">Aymeric du Peloux 5 Cosmopoly</option>
-                                <option value="Aymeric du Peloux Cosmonotes.sok">Aymeric du Peloux Cosmonotes</option>
-                                <option value="Aymeric du Peloux Myriocosmos.sok">Aymeric du Peloux Myriocosmos</option>
-                                <option value="Disciple.sok">Disciple</option>
-                                <option value="GRIGoRusha 2001.sok">GRIGoRusha 2001</option>
-                                <option value="GRIGoRusha 2002.sok">GRIGoRusha 2002</option>
-                                <option value="GRIGoRusha Comet.sok">GRIGoRusha Comet</option>
-                                <option value="GRIGoRusha Remodel Club.sok">GRIGoRusha Remodel Club</option>
-                                <option value="GRIGoRusha Special.sok">GRIGoRusha Special</option>
-                                <option value="GRIGoRusha Star.sok">GRIGoRusha Star</option>
-                                <option value="GRIGoRusha Sun.sok">GRIGoRusha Sun</option>
-                            </select>
-                            <p></p>
-                            <label for="puzzleSelector">Puzzle:</label>
-                            <select class="ui search dropdown" id="puzzleSelector">
-                                <option value="1">1 - Puzzle 1</option>
-                            </select>
+                            <div class="field">
+                                <label for="collectionSelector">Collection:</label>
+                                <select class="ui search dropdown" id="collectionSelector">
+                                    <option value="Mini Cosmos.sok">Aymeric du Peloux 1 Mini Cosmos</option>
+                                    <option value="Micro Cosmos.sok">Aymeric du Peloux 2 Micro Cosmos</option>
+                                    <option value="Nabo Cosmos.sok">Aymeric du Peloux 3 Nabo Cosmos</option>
+                                    <option value="Pico Cosmos.sok">Aymeric du Peloux 4 Pico Cosmos</option>
+                                    <option value="Cosmopoly.sok">Aymeric du Peloux 5 Cosmopoly</option>
+                                    <option value="Cosmonotes.sok">Aymeric du Peloux Cosmonotes</option>
+                                    <option value="Myrio Cosmos.sok">Aymeric du Peloux Myrio Cosmos</option>
+                                    <option value="Disciple.sok">Jean-Pierre Martel Disciple</option>
+                                    <option value="Grigr 2001.sok">GRIGoRusha 2001</option>
+                                    <option value="Grigr 2002.sok">GRIGoRusha 2002</option>
+                                    <option value="Grigr Challenge.sok">GRIGoRusha Challenge</option>
+                                    <option value="Grigr Special.sok">GRIGoRusha Special</option>
+                                    <option value="Grigr Star.sok">GRIGoRusha Star</option>
+                                    <option value="Grigr Sun.sok">GRIGoRusha Sun</option>
+                                    <option value="SokEvo.sok">Lee J Haywood SokEvo</option>
+                                    <option value="YASGen.sok">Brian Damgaard YASGen</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label for="puzzleSelector">Puzzle:</label>
+                                <select class="ui search dropdown" id="puzzleSelector">
+                                    <option value="1">1 - Puzzle 1</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -422,117 +484,141 @@
         </div>
     </div>
 
-</div>  <!-- end pusher -->
-
-<!-- jQuery + Fomantic JS -->
-<script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.js"></script>
-
-<!-- LocalForage -->
-<script src="https://cdn.jsdelivr.net/npm/localforage/dist/localforage.min.js"></script>
-
-<!-- Modal: invalid board -->
-<div class="ui modal" id="showInvalidBoard">
-    <div class="header">
-        Invalid board found
-    </div>
-    <div class="ui segment">
-        Found valid board strings:
+    <!-- Modal: invalid board -->
+    <div class="ui modal" id="showInvalidBoard">
+        <div class="header">
+            Invalid board found
+        </div>
         <div class="ui segment">
-            <pre style="font-family: 'Courier', monospace" id="boardAsString"></pre>
+            Found valid board strings:
+            <div class="ui segment">
+                <pre style="font-family: 'Courier', monospace" id="boardAsString"></pre>
+            </div>
+            <pre style="color: red" id="boardErrorMessage"></pre>
         </div>
-        <pre style="color: red" id="boardErrorMessage"></pre>
+
+        <div class="actions">
+            <div class="ui primary positive button">OK</div>
+        </div>
     </div>
 
-    <div class="actions">
-        <div class="ui primary positive button">OK</div>
-    </div>
-</div>
+    <!-- Modal: How to play -->
+    <div class="ui modal" id="showHowToPlay">
+        <div class="header">
+            <h1>How to play</h1>
+        </div>
 
-<!-- Modal: How to play -->
-<div class="ui modal" id="showHowToPlay">
-    <div class="header">
-        <h1>How to play</h1>
+        <div style="padding: 40px">
+            <div class="ui tiny header">
+                <h3>Sokoban</h3>
+                The puzzle game where you push boxes or crates around in a warehouse,
+                trying to get them to storage locations.
+            </div>
+
+            <div class="ui segment">
+                <h3>Using the keyboard:</h3>
+                You can move the player using the arrow keys for moving the player up, down, left and right.<br>
+                Alternatively you can use the keys: w, a, s, d or i, j, k, l.
+            </div>
+
+            <div class="ui segment">
+                <h3>Using the mouse:</h3>
+                Click at a free position to let the player move to that position. <br><br>
+                Click a box to select it and then click at the target position for that box
+                to let the player push that box to that target position.
+            </div>
+        </div>
+
+        <div class="actions">
+            <div class="ui primary positive button">OK</div>
+        </div>
     </div>
 
-    <div style="padding: 40px">
-        <div class="ui tiny header">
-            <h3>Sokoban</h3>
-            The puzzle game where you push boxes or crates around in a warehouse,
-            trying to get them to storage locations.
+    <!-- Modal: Letslogic submission progress -->
+    <div class="ui modal" id="letslogicProgressModal">
+        <div class="header">
+            Letslogic submission
+        </div>
+
+        <div class="content">
+            <div id="letslogicProgressStatus" class="ui small header">
+                Preparing submission…
+            </div>
+
+            <pre id="letslogicProgressLog" class="letslogic-progress-log"
+                 style="max-height: 300px; overflow-y: auto; background: #f9f9f9; padding: 0.75em;">
+        </pre>
+        </div>
+
+        <div class="actions">
+            <div class="ui primary button" id="letslogicProgressCloseButton">
+                Close
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: paste from clipboard (fallback when direct access is not available) -->
+    <div class="ui modal" id="pasteFromClipboardDialog">
+        <div class="header">
+            <h1>Please paste clipboard content</h1>
         </div>
 
         <div class="ui segment">
-            <h3>Using the keyboard:</h3>
-            You can move the player using the arrow keys for moving the player up, down, left and right.<br>
-            Alternatively you can use the keys: w, a, s, d or i, j, k, l.
+            <label for="pastedClipboardContent">Clipboard content:</label>
+            <br>
+            <textarea id="pastedClipboardContent" style="height: 200px" placeholder="Paste content here"></textarea>
         </div>
 
-        <div class="ui segment">
-            <h3>Using the mouse:</h3>
-            Click at a free position to let the player move to that position. <br><br>
-            Click a box to select it and then click at the target position for that box
-            to let the player push that box to that target position.
+        <div class="actions">
+            <div class="ui deny button">Cancel</div>
+            <div class="ui primary positive button">
+                Import content
+            </div>
         </div>
     </div>
 
-    <div class="actions">
-        <div class="ui primary positive button">OK</div>
-    </div>
-</div>
+    <!-- Sounds -->
+    <audio id="moveSound"        preload><source src="/resources/sound/move.wav" /></audio>
+    <audio id="pushSound"        preload><source src="/resources/sound/push.wav" /></audio>
+    <audio id="pushToGoalSound"  preload><source src="/resources/sound/pushToGoal.wav" /></audio>
+    <audio id="moveBlockedSound" preload><source src="/resources/sound/moveBlocked.wav" /></audio>
+    <audio id="solvedSound"      preload><source src="/resources/sound/solved.wav" /></audio>
 
-<!-- Modal: paste from clipboard (fallback when direct access is not available) -->
-<div class="ui modal" id="pasteFromClipboardDialog">
-    <div class="header">
-        <h1>Please paste clipboard content</h1>
-    </div>
+    <!-- Hidden file input used to load a puzzle from disk -->
+    <input
+            type="file"
+            id="puzzleFileInput"
+            accept=".txt,.sok,.xsb"
+            style="display: none"
+    />
 
-    <div class="ui segment">
-        <label for="pastedClipboardContent">Clipboard content:</label>
-        <br>
-        <textarea id="pastedClipboardContent" style="height: 200px" placeholder="Paste content here"></textarea>
-    </div>
-
-    <div class="actions">
-        <div class="ui deny button">Cancel</div>
-        <div class="ui primary positive button">
-            Import content
+    <!-- Context menu for snapshots/solutions -->
+    <div id="snapshotContextMenu" class="ui vertical menu custom-context-menu">
+        <div class="item" id="contextSetSnapshot">
+            <i class="play icon"></i>
+            Set state on board
+        </div>
+        <div class="item" id="contextCopySnapshot">
+            <i class="copy icon"></i>
+            Copy LURD to clipboard
+        </div>
+        <div class="item" id="contextDeleteSnapshot">
+            <i class="trash icon"></i>
+            Delete snapshot / solution
         </div>
     </div>
-</div>
 
-<!-- Sounds -->
-<audio id="moveSound"        preload><source src="/resources/sound/move.wav" /></audio>
-<audio id="pushSound"        preload><source src="/resources/sound/push.wav" /></audio>
-<audio id="pushToGoalSound"  preload><source src="/resources/sound/pushToGoal.wav" /></audio>
-<audio id="moveBlockedSound" preload><source src="/resources/sound/moveBlocked.wav" /></audio>
-<audio id="solvedSound"      preload><source src="/resources/sound/solved.wav" /></audio>
+    <!-- jQuery + Fomantic JS -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.js"></script>
 
-<!-- Hidden file input used to load a puzzle from disk -->
-<input
-        type="file"
-        id="puzzleFileInput"
-        accept=".txt,.sok,.xsb"
-        style="display: none"
-/>
+    <!-- LocalForage -->
+    <script src="https://cdn.jsdelivr.net/npm/localforage/dist/localforage.min.js"></script>
 
-<!-- Context menu for snapshots/solutions -->
-<div id="snapshotContextMenu" class="ui vertical menu custom-context-menu">
-    <div class="item" id="contextSetSnapshot">
-        <i class="play icon"></i>
-        Set state on board
-    </div>
-    <div class="item" id="contextCopySnapshot">
-        <i class="copy icon"></i>
-        Copy LURD to clipboard
-    </div>
-    <div class="item" id="contextDeleteSnapshot">
-        <i class="trash icon"></i>
-        Delete snapshot / solution
-    </div>
-</div>
+    <!-- Main app entry point -->
+    <script type="module" src="sokoban.ts"></script>
 
-<!-- Main app entry point -->
-<script type="module" src="sokoban.ts"></script>
+</div> <!-- end pusher -->
+
 </body>
 </html>

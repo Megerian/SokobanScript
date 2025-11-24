@@ -1,7 +1,7 @@
 import {CommonSkinFormatBase} from "./CommonSkinFormatBase"
 
 /**
- * The NightShift3Skin from Gerry Wiseman.
+ * The AntiqueDeskSkin from Gerry Wiseman.
  */
 export class AntiqueDeskSkin extends CommonSkinFormatBase {
 

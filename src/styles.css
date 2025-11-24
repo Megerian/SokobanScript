@@ -2,18 +2,15 @@
 /*  Global base styles                                                   */
 /* ===================================================================== */
 
-/* Prevent accidental selection of UI text and elements */
 * {
     user-select: none;
 }
 
-/* Allow text selection in form fields (e.g. clipboard dialog) */
 input,
 textarea {
     user-select: text;
 }
 
-/* Document background and scroll behavior */
 body {
     background-color: #EBEDEF !important;
     overflow: hidden;
@@ -23,29 +20,48 @@ body {
 /*  Main layout                                                          */
 /* ===================================================================== */
 
-/* Main app container: selector area on the left, game area on the right */
 #appDiv {
     display: flex;
 }
 
-/* Container for toolbar + canvas */
+/* Left column (selectors + stats) */
+#appDiv > div:first-child {
+    padding-top: 20px;
+    padding-left: 20px; /* small gap from sidebar */
+}
+
+/* Right column: toolbar + canvas + status bar */
 #buttonsAndCanvasDIV {
-    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* children width = own width, no stretching */
+    margin-left: 24px;       /* gap between selectors and board */
+    margin-top: 16px;
+    flex: 0 0 auto;          /* width follows its content (canvas + toolbar) */
 }
 
-/* Canvas wrapper: must be relative so the solved overlay can be centered */
+/* Toolbar: width is set dynamically from JS to board pixel width */
+#toolbarButtons {
+    display: flex;
+    justify-content: center;  /* center buttons within toolbar row */
+    gap: 8px;
+    margin-bottom: 8px;
+    width: auto;              /* JS sets an explicit px width */
+}
+
+/* Canvas wrapper: relative for solved overlay, shrink to board size */
 #canvasDIV {
-    position: relative;      /* anchor for #puzzleSolvedDiv */
-    display: inline-block;   /* shrink wrapper to board size */
+    position: relative;
+    display: inline-block;
+    margin-top: 8px;
 }
 
-/* Toolbar with undo/redo buttons */
-.toolbarButtons {
-    text-align: center;
-    padding-bottom: 16px;
+/* Canvas element itself */
+#canvas {
+    display: block;
 }
 
-/* Generic helper to absolutely center an element (not used for solved popup) */
+/* Helper (not used for solved popup) */
 .center {
     margin: 0;
     position: absolute;
@@ -58,24 +74,20 @@ body {
 /*  "Puzzle solved!" overlay                                             */
 /* ===================================================================== */
 
-/* Container for the "Puzzle solved!" popup.
-   Vertically centered in the canvas wrapper; horizontal position is set in JS. */
 #puzzleSolvedDiv {
     position: absolute;
-    top: 50%;            /* vertical center relative to #canvasDIV */
-    left: 0;             /* JS sets the exact x-position */
+    top: 50%;
+    left: 50%;                 /* JS corrects left to board center */
     transform: translate(-50%, -50%);
     z-index: 20;
     pointer-events: none;
 }
 
-/* Circular dimmer content */
 #puzzleSolvedDiv .ui.dimmer.dot {
     position: static;
     display: flex;
     align-items: center;
     justify-content: center;
-
     width: 220px;
     height: 220px;
     border-radius: 50%;
@@ -83,7 +95,6 @@ body {
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-/* Keep .dot class in case it is used elsewhere */
 .dot {
     border-radius: 50%;
 }
@@ -94,8 +105,9 @@ body {
 
 /* Left selector cards (collection & puzzle selectors) */
 .selector {
-    padding-top: 20px;
-    padding-left: 20px;
+    /* keep the current look; horizontal spacing is controlled above */
+    padding-top: 0;
+    padding-left: 0;
 }
 
 /* Labels behave like inline-blocks so spacing works consistently */
@@ -270,6 +282,28 @@ label {
     bottom: 1.5rem;   /* move a bit up from the very bottom if desired */
 }
 
+
+/* ===================================================================== */
+/*  Letslogic solution submission                                        */
+/* ===================================================================== */
+
+/* Letslogic progress log lines */
+.letslogic-progress-log-line {
+    margin: 0;
+    white-space: pre-wrap; /* keep line breaks and wrap long lines */
+    font-family: "Courier", monospace;
+}
+
+/* Success lines (Letslogic OK responses) */
+.letslogic-progress-log-line.success {
+    color: #21ba45; /* Semantic UI green */
+}
+
+/* Error lines */
+.letslogic-progress-log-line.error {
+    color: #db2828; /* Semantic UI red */
+}
+
 /* ===================================================================== */
 /*  Responsiveness (optional light tweaks)                               */
 /* ===================================================================== */
@@ -280,11 +314,12 @@ label {
         flex-direction: column;
     }
 
-    #buttonsAndCanvasDIV {
+    #appDiv > div:first-child {
         padding: 16px;
     }
 
-    .selector {
-        padding: 16px;
+    #buttonsAndCanvasDIV {
+        margin-left: 16px;
+        margin-top: 8px;
     }
 }

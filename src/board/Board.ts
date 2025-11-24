@@ -7,7 +7,7 @@ import {
     XSB_BOX_ON_GOAL,
     XSB_BOX,
     XSB_GOAL,
-    XSB_WALL, XSB_FLOOR, XSB_BACKGROUND
+    XSB_WALL, XSB_FLOOR, XSB_BACKGROUND, PuzzleFormat
 } from "../Sokoban/PuzzleFormat"
 
 const NONE = -1
@@ -240,7 +240,10 @@ export class Board {
      */
     static createFromString(boardString: string): Board | string {
 
-        const lines = boardString.split("\n").filter( row => row.includes("#"))
+        const lines = boardString
+            .replace(/\r/g, "")
+            .split("\n")
+            .filter(PuzzleFormat.isValidBoardRow)   // statt .filter(row => row.includes("#"))
         const height = lines.length
 
         const width = lines.map(line => line.length)
@@ -282,6 +285,7 @@ export class Board {
                         break
 
                     case " ":
+                    case "_":
                     case "-": {
                         board.elements[position] = BACKGROUND   // active positions are determined later
                         break

@@ -119,10 +119,17 @@ export abstract class CommonSkinFormatBase {
 
             // There are four graphics for showing animations for: player, playerOnGoal, box and boxOnGoal.
             for (let x = 0; x < this.animationGraphicCount; x++) {
-                this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 6)) // Selected player animation graphics
-                this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 7)) // Selected player on goal animation graphics
-                this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 8)) // Selected box animation graphics
-                this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 9)) // Selected box on goal animation graphics
+                if(this.skinsPath.indexOf("KenBri")) {  // special coding for KenBri skin
+                    this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(1, 0))   // player down for selected player animation graphics
+                    this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(1, 1)) // player down for selected player on goal animation graphics
+                    this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 6)) // Selected box animation graphics
+                    this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 7)) // Selected box on goal animation graphics
+                } else {
+                    this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 6)) // Selected player animation graphics
+                    this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 7)) // Selected player on goal animation graphics
+                    this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 8)) // Selected box animation graphics
+                    this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 9)) // Selected box on goal animation graphics
+                }
             }
         } else {
             this.playerInViewDirectionSprites = [
@@ -189,6 +196,8 @@ export abstract class CommonSkinFormatBase {
             default: return this.floorSprite
         }
     }
+
+    getFloorSprite(): SpriteData { return this.floorSprite }
 
     protected getSpriteForWall(board: Board, position: number): SpriteData {
 
@@ -346,10 +355,10 @@ export abstract class CommonSkinFormatBase {
      * @private
      */
     private async createSelectedObjectAnimationBlendingGraphics() {
-        this.playerSelectedAnimationSprites     = await this.createSmootherAnimationGraphicsFor(this.playerSelectedAnimationSprites)
-        this.playerOnGoalInViewDirectionSprites = await this.createSmootherAnimationGraphicsFor(this.playerOnGoalInViewDirectionSprites)
-        this.boxSelectedAnimationSprites        = await this.createSmootherAnimationGraphicsFor(this.boxSelectedAnimationSprites)
-        this.boxOnGoalSelectedAnimationSprites  = await this.createSmootherAnimationGraphicsFor(this.boxOnGoalSelectedAnimationSprites)
+        this.playerSelectedAnimationSprites       = await this.createSmootherAnimationGraphicsFor(this.playerSelectedAnimationSprites)
+        this.playerOnGoalSelectedAnimationSprites = await this.createSmootherAnimationGraphicsFor(this.playerOnGoalSelectedAnimationSprites)
+        this.boxSelectedAnimationSprites          = await this.createSmootherAnimationGraphicsFor(this.boxSelectedAnimationSprites)
+        this.boxOnGoalSelectedAnimationSprites    = await this.createSmootherAnimationGraphicsFor(this.boxOnGoalSelectedAnimationSprites)
     }
 
     /**

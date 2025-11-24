@@ -6,6 +6,7 @@ import {HeavyMetal3Skin} from "./commonSkinFormat/HeavyMetal3Skin";
 import {SokoGemsSkin} from "./commonSkinFormat/SokoGemsSkin";
 import {KSokobanSkin} from "./commonSkinFormat/KSokobanSkin";
 import {KSokoban2Skin} from "./commonSkinFormat/KSokoban2Skin";
+import {KenBriSkin} from "./commonSkinFormat/KenBriSkin";
 
 export class SkinLoader {
 
@@ -38,6 +39,9 @@ export class SkinLoader {
                 break
 
             case "KSokoban2": skin = new KSokoban2Skin()
+                break
+
+            case "KenBri": skin = new KenBriSkin()
                 break
         }
 

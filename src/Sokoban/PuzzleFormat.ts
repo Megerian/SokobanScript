@@ -20,20 +20,34 @@ export type LURD_CHAR = "U" | "D" | "R" | "L" | "u" | "d" | "r" | "l"
 
 export const LURD_CHARS = ["U", "D", "R", "L", "u", "d", "r", "l"]
 
-export type XSB_CHAR = '#' | ' ' | '$' | '*' | '@' | '+' | '.' | '-'
-export const XSB_CHARS = ['#', ' ', '$', '*', '@', '+', '.', '-']
+export type XSB_CHAR = '#' | ' ' | '$' | '*' | '@' | '+' | '.' | '-' | '_'
+export const XSB_CHARS = ['#', ' ', '$', '*', '@', '+', '.', '-', '_']
 
 export class PuzzleFormat {
 
+    /**
+     * Returns true if the row contains only valid board characters
+     * AND contains at least one of '#', '-' or '_'.
+     */
     static isValidBoardRow(boardRow: string): boolean {
 
-        const isInvalidChar = (char: string) => XSB_CHARS.indexOf(char) == -1 && char !== '\r' && char !== '\n'
+        // 1) All characters must be from the allowed XSB character set (plus CR/LF).
+        const isInvalidChar = (char: string) =>
+            XSB_CHARS.indexOf(char) === -1 && char !== '\r' && char !== '\n'
 
-        for(const char of boardRow) {
-            if(isInvalidChar(char)) {
+        for (const char of boardRow) {
+            if (isInvalidChar(char)) {
                 return false
             }
         }
-        return true
+
+        // 2) A valid board row must contain at least one "structural" char:
+        //    wall or background: '#', '-', '_'.
+        const hasStructuralChar =
+            boardRow.indexOf('#') !== -1 ||
+            boardRow.indexOf('-') !== -1 ||
+            boardRow.indexOf('_') !== -1
+
+        return hasStructuralChar
     }
 }

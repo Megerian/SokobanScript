@@ -1,7 +1,7 @@
 import {CommonSkinFormatBase} from "./CommonSkinFormatBase"
 
 /**
- * The NightShift3Skin from Gerry Wiseman.
+ * The HeavyMetal3Skin from Gerry Wiseman.
  */
 export class HeavyMetal3Skin extends CommonSkinFormatBase {
 
