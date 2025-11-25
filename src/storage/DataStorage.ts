@@ -18,6 +18,21 @@ interface StoredSnapshotDTO {
 }
 
 /**
+ * Container for all snapshots/solutions belonging to a specific board.
+ *
+ * This is the NEW format used for storage:
+ *  - boardString: layout of the board (so we can reconstruct/export later)
+ *  - snapshots:  list of snapshot/solution DTOs
+ *
+ * Older stored data may still be just an array<StoredSnapshotDTO>; we handle
+ * that transparently for backwards compatibility.
+ */
+interface StoredBoardSnapshotsDTO {
+    boardString: string
+    snapshots: StoredSnapshotDTO[]
+}
+
+/**
  * DTO for Letslogic submissions.
  * One entry represents a solution that has been successfully submitted
  * for a specific (apiKey, letslogicId) pair.
@@ -75,6 +90,76 @@ export class DataStorage {
         return hash.toString(16)
     }
 
+    // -------------------------------------------------------------------------
+    // Internal helpers for board + snapshot container (new format)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Loads the StoredBoardSnapshotsDTO for the given board.
+     *
+     * Backwards compatible:
+     *  - If nothing is stored yet, returns an empty DTO with the current boardString.
+     *  - If the stored value is an array<StoredSnapshotDTO>, wraps it into the new DTO.
+     *  - If the stored value is already a StoredBoardSnapshotsDTO, returns it.
+     */
+    private static async loadBoardSnapshotsEntry(board: Board): Promise<StoredBoardSnapshotsDTO> {
+        const key = this.getSnapshotStorageKey(board)
+
+        const raw = await localforage.getItem<StoredSnapshotDTO[] | StoredBoardSnapshotsDTO>(key)
+
+        // Nothing stored yet -> empty container with current boardString.
+        if (!raw) {
+            return {
+                boardString: board.getBoardAsString(),
+                snapshots:   []
+            }
+        }
+
+        // Old format: plain array of snapshots.
+        if (Array.isArray(raw)) {
+            return {
+                boardString: board.getBoardAsString(),
+                snapshots:   raw
+            }
+        }
+
+        // New format.
+        const dto = raw as StoredBoardSnapshotsDTO
+
+        // Be defensive: ensure boardString and snapshots exist.
+        const boardString = dto.boardString && dto.boardString.length > 0
+            ? dto.boardString
+            : board.getBoardAsString()
+
+        const snapshots = Array.isArray(dto.snapshots) ? dto.snapshots : []
+
+        return {
+            boardString,
+            snapshots
+        }
+    }
+
+    /**
+     * Stores the given StoredBoardSnapshotsDTO for the given board.
+     * Ensures that boardString is populated before writing.
+     */
+    private static async saveBoardSnapshotsEntry(
+        board: Board,
+        entry: StoredBoardSnapshotsDTO
+    ): Promise<void> {
+        const key = this.getSnapshotStorageKey(board)
+
+        if (!entry.boardString || entry.boardString.length === 0) {
+            entry.boardString = board.getBoardAsString()
+        }
+
+        await localforage.setItem(key, entry)
+    }
+
+    // -------------------------------------------------------------------------
+    // Snapshots / solutions storage
+    // -------------------------------------------------------------------------
+
     /**
      * Stores a snapshot or solution for the given board.
      * If an entry with the same LURD and type already exists, it is not added again.
@@ -84,18 +169,16 @@ export class DataStorage {
      *    there is no UI message here.
      */
     static async storeSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
-        const key = this.getSnapshotStorageKey(board)
-
-        const existing = (await localforage.getItem<StoredSnapshotDTO[]>(key)) ?? []
+        const entry = await this.loadBoardSnapshotsEntry(board)
 
         const isSolution = snapshot instanceof Solution
 
         // Duplicate check (LURD + isSolution)
-        if (existing.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
+        if (entry.snapshots.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
             return // Already stored – do nothing.
         }
 
-        existing.push({
+        entry.snapshots.push({
             lurd: snapshot.lurd,
             name: snapshot.name,
             notes: snapshot.notes,
@@ -108,7 +191,7 @@ export class DataStorage {
             playerLineCount: snapshot.playerLineCount
         })
 
-        await localforage.setItem(key, existing)
+        await this.saveBoardSnapshotsEntry(board, entry)
     }
 
     /** Convenience wrapper for storing a solution explicitly. */
@@ -121,8 +204,8 @@ export class DataStorage {
      * Any identical board (same getBoardAsString()) will share these entries.
      */
     static async loadSnapshotsAndSolutions(board: Board): Promise<(Snapshot | Solution)[]> {
-        const key = this.getSnapshotStorageKey(board)
-        const stored = (await localforage.getItem<StoredSnapshotDTO[]>(key)) ?? []
+        const entry = await this.loadBoardSnapshotsEntry(board)
+        const stored = entry.snapshots
 
         return stored.map(dto => {
             const metrics = new Metrics()
@@ -147,16 +230,54 @@ export class DataStorage {
      * Deletes a snapshot or solution from storage for the given board.
      */
     static async deleteSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
-        const key = this.getSnapshotStorageKey(board)
-        const existing = (await localforage.getItem<StoredSnapshotDTO[]>(key)) ?? []
+        const entry = await this.loadBoardSnapshotsEntry(board)
 
         const isSolution = snapshot instanceof Solution
 
-        const filtered = existing.filter(s =>
+        entry.snapshots = entry.snapshots.filter(s =>
             !(s.lurd === snapshot.lurd && s.isSolution === isSolution)
         )
 
-        await localforage.setItem(key, filtered)
+        await this.saveBoardSnapshotsEntry(board, entry)
+    }
+
+    /**
+     * Stores multiple snapshots/solutions for the given board in a single
+     * read-modify-write operation.
+     *
+     * This avoids race conditions that can occur when calling storeSnapshot
+     * many times in parallel for the same board.
+     */
+    static async storeSnapshotsBulk(board: Board, snapshots: (Snapshot | Solution)[]): Promise<void> {
+        if (snapshots.length === 0) {
+            return
+        }
+
+        const entry = await this.loadBoardSnapshotsEntry(board)
+
+        for (const snapshot of snapshots) {
+            const isSolution = snapshot instanceof Solution
+
+            // Duplicate check (LURD + isSolution)
+            if (entry.snapshots.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
+                continue
+            }
+
+            entry.snapshots.push({
+                lurd: snapshot.lurd,
+                name: snapshot.name,
+                notes: snapshot.notes,
+                isSolution,
+                moveCount: snapshot.moveCount,
+                pushCount: snapshot.pushCount,
+                boxLineCount: snapshot.boxLineCount,
+                boxChangeCount: snapshot.boxChangeCount,
+                pushingSessionCount: snapshot.pushingSessionCount,
+                playerLineCount: snapshot.playerLineCount
+            })
+        }
+
+        await this.saveBoardSnapshotsEntry(board, entry)
     }
 
     // -------------------------------------------------------------------------
@@ -196,46 +317,6 @@ export class DataStorage {
             moveCount,
             pushCount
         })
-
-        await localforage.setItem(key, existing)
-    }
-
-    /**
-     * Stores multiple snapshots/solutions for the given board in a single
-     * read-modify-write operation.
-     *
-     * This avoids race conditions that can occur when calling storeSnapshot
-     * many times in parallel for the same board.
-     */
-    static async storeSnapshotsBulk(board: Board, snapshots: (Snapshot | Solution)[]): Promise<void> {
-        if (snapshots.length === 0) {
-            return
-        }
-
-        const key = this.getSnapshotStorageKey(board)
-        const existing = (await localforage.getItem<StoredSnapshotDTO[]>(key)) ?? []
-
-        for (const snapshot of snapshots) {
-            const isSolution = snapshot instanceof Solution
-
-            // Duplicate check (LURD + isSolution)
-            if (existing.some(s => s.lurd === snapshot.lurd && s.isSolution === isSolution)) {
-                continue
-            }
-
-            existing.push({
-                lurd: snapshot.lurd,
-                name: snapshot.name,
-                notes: snapshot.notes,
-                isSolution,
-                moveCount: snapshot.moveCount,
-                pushCount: snapshot.pushCount,
-                boxLineCount: snapshot.boxLineCount,
-                boxChangeCount: snapshot.boxChangeCount,
-                pushingSessionCount: snapshot.pushingSessionCount,
-                playerLineCount: snapshot.playerLineCount
-            })
-        }
 
         await localforage.setItem(key, existing)
     }
