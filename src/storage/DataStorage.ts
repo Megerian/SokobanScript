@@ -24,8 +24,10 @@ export interface StoredSnapshotDTO {
  * Container for all snapshots/solutions belonging to a specific board.
  *
  * Storage format:
- *  - boardString: layout of the board (so we can reconstruct/export later)
+ *  - boardString: normalized layout of the board (so we can reconstruct/export later)
  *  - snapshots:  list of snapshot/solution DTOs
+ *
+ * All boards that produce the same normalized board string share one entry.
  */
 export interface StoredBoardSnapshotsDTO {
     boardString: string
@@ -44,48 +46,92 @@ interface StoredSubmittedSolutionDTO {
     pushCount: number
 }
 
+/**
+ * DataStorage is a small persistence layer on top of localforage.
+ *
+ * Responsibilities:
+ *  - store/load/delete snapshots and solutions per board
+ *  - export all stored boards with their snapshots/solutions
+ *  - track which solutions have already been submitted to Letslogic
+ *
+ * Board identity
+ * --------------
+ * A board is identified by its normalized board string
+ * (getBoardAsString() with trailing whitespace removed).
+ *
+ * The normalized board string is:
+ *  - used as part of the storage key (URL-encoded)
+ *  - stored again inside the value (boardString) for export and sanity.
+ */
 export class DataStorage {
 
     /**
      * Configure the localforage storage.
      */
-    static init() {
+    static init(): void {
         localforage.config({
             name:        "Sokoban Typescript",
             description: "DataStorage for Sokoban Typescript"
         })
     }
 
+    // -------------------------------------------------------------------------
+    // Key helpers
+    // -------------------------------------------------------------------------
+
     /**
-     * Returns the storage key for all snapshots/solutions belonging to the given board.
-     * Identical boards (same layout string) share the same key and therefore
-     * the same snapshots and solutions.
+     * Returns the normalized board string for a board:
+     *  - uses Board.getBoardAsString()
+     *  - removes trailing whitespace, but keeps internal spaces and newlines
+     *
+     * This must be stable: equal boards must produce equal normalized strings.
      */
-    private static getSnapshotStorageKey(board: Board): string {
-        const boardString = board.getBoardAsString()
-        const hash = DataStorage.hashString(boardString)
-        return `snapshots:${hash}`
+    private static getNormalizedBoardString(board: Board): string {
+        const raw = board.getBoardAsString()
+        // Remove trailing whitespace (spaces, tabs, newlines) to avoid
+        // accidental differences caused by formatting.
+        return raw.replace(/\s+$/u, "")
     }
 
     /**
-     * Returns the storage key for Letslogic submissions for the given API key and Letslogic ID.
-     * We hash the API key for the key string, but the plain key is still stored in the value.
+     * Returns the storage key for all snapshots/solutions belonging to the given board.
+     *
+     * We use the *normalized* board string and URL-encode it so the key is
+     * debugging-friendly but safe for localforage/IndexedDB.
+     *
+     * Example:
+     *   "####\n#.@#\n####"
+     * becomes
+     *   snapshots:%23%23%23%23%0A%23.%40%23%0A%23%23%23%23
+     */
+    private static getSnapshotStorageKey(board: Board): string {
+        const normalizedBoard = this.getNormalizedBoardString(board)
+        const encoded = encodeURIComponent(normalizedBoard)
+        return `snapshots:${encoded}`
+    }
+
+    /**
+     * Returns the storage key for Letslogic submissions for the given API key
+     * and Letslogic ID.
+     *
+     * We do not expose the raw apiKey in the key to make debugging cleaner,
+     * but this is not a security feature.
      */
     private static getLetslogicStorageKey(apiKey: string, letslogicId: number): string {
-        const apiKeyHash = DataStorage.hashString(apiKey)
+        const apiKeyHash = this.simpleHashString(apiKey)
         return `letslogic:${apiKeyHash}:${letslogicId}`
     }
 
     /**
      * Simple deterministic hash function for strings.
-     * Not cryptographically secure, but fine for keying.
+     * Not cryptographically secure, but sufficient for keying Letslogic entries.
      */
-    private static hashString(value: string): string {
+    private static simpleHashString(value: string): string {
         let hash = 0
         for (let i = 0; i < value.length; i++) {
             const chr = value.charCodeAt(i)
             hash = ((hash << 5) - hash) + chr
-            hash |= 0 // Convert to 32bit integer
+            hash |= 0 // Convert to 32-bit integer
         }
         return hash.toString(16)
     }
@@ -99,27 +145,29 @@ export class DataStorage {
      *
      * Behavior:
      *  - If nothing is stored yet, returns an empty DTO with the current boardString.
-     *  - If the stored value is an array<StoredSnapshotDTO>, wraps it into a DTO.
+     *  - If the stored value is an array<StoredSnapshotDTO>, wraps it into a DTO
+     *    (legacy format support).
      *  - If the stored value is already a StoredBoardSnapshotsDTO, returns it
-     *    (with defensive defaults).
+     *    with defensive defaults.
      */
     private static async loadBoardSnapshotsEntry(board: Board): Promise<StoredBoardSnapshotsDTO> {
         const key = this.getSnapshotStorageKey(board)
+        const normalizedBoardString = this.getNormalizedBoardString(board)
 
         const raw = await localforage.getItem<StoredSnapshotDTO[] | StoredBoardSnapshotsDTO>(key)
 
         // Nothing stored yet -> empty container with current boardString.
         if (!raw) {
             return {
-                boardString: board.getBoardAsString(),
+                boardString: normalizedBoardString,
                 snapshots:   []
             }
         }
 
-        // Format: plain array of snapshots.
+        // Legacy format: plain array of snapshots (no boardString in the value).
         if (Array.isArray(raw)) {
             return {
-                boardString: board.getBoardAsString(),
+                boardString: normalizedBoardString,
                 snapshots:   raw
             }
         }
@@ -128,9 +176,9 @@ export class DataStorage {
         const dto = raw as StoredBoardSnapshotsDTO
 
         // Be defensive: ensure boardString and snapshots exist.
-        const boardString = dto.boardString && dto.boardString.length > 0
+        const boardString = typeof dto.boardString === "string" && dto.boardString.length > 0
             ? dto.boardString
-            : board.getBoardAsString()
+            : normalizedBoardString
 
         const snapshots = Array.isArray(dto.snapshots) ? dto.snapshots : []
 
@@ -142,16 +190,21 @@ export class DataStorage {
 
     /**
      * Stores the given StoredBoardSnapshotsDTO for the given board.
-     * Ensures that boardString is populated before writing.
+     * Ensures that boardString is populated and normalized before writing.
      */
     private static async saveBoardSnapshotsEntry(
         board: Board,
         entry: StoredBoardSnapshotsDTO
     ): Promise<void> {
+
         const key = this.getSnapshotStorageKey(board)
+        const normalizedBoardString = this.getNormalizedBoardString(board)
 
         if (!entry.boardString || entry.boardString.length === 0) {
-            entry.boardString = board.getBoardAsString()
+            entry.boardString = normalizedBoardString
+        } else {
+            // Keep the stored boardString but also normalize trailing whitespace
+            entry.boardString = entry.boardString.replace(/\s+$/u, "")
         }
 
         await localforage.setItem(key, entry)
@@ -166,12 +219,15 @@ export class DataStorage {
      *
      * Any entry that does not contain a valid boardString and a snapshots array
      * is simply skipped and not processed further.
+     *
+     * This method does not rely on the exact key format; it only inspects values.
      */
     static async loadAllBoardsWithSnapshots(): Promise<StoredBoardSnapshotsDTO[]> {
         const result: StoredBoardSnapshotsDTO[] = []
 
         await localforage.iterate<unknown, void>((value, key) => {
 
+            // We are only interested in snapshot entries
             if (typeof key !== "string" || !key.startsWith("snapshots:")) {
                 return
             }
@@ -210,7 +266,6 @@ export class DataStorage {
      */
     static async storeSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
         const entry = await this.loadBoardSnapshotsEntry(board)
-
         const isSolution = snapshot instanceof Solution
 
         // Duplicate check (LURD + isSolution)
@@ -241,7 +296,7 @@ export class DataStorage {
 
     /**
      * Loads all snapshots and solutions that have been stored for the given board.
-     * Any identical board (same getBoardAsString()) will share these entries.
+     * Any identical board (same normalized getBoardAsString()) will share these entries.
      */
     static async loadSnapshotsAndSolutions(board: Board): Promise<(Snapshot | Solution)[]> {
         const entry = await this.loadBoardSnapshotsEntry(board)
@@ -268,10 +323,10 @@ export class DataStorage {
 
     /**
      * Deletes a snapshot or solution from storage for the given board.
+     * Matching is done by (lurd, isSolution).
      */
     static async deleteSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
         const entry = await this.loadBoardSnapshotsEntry(board)
-
         const isSolution = snapshot instanceof Solution
 
         entry.snapshots = entry.snapshots.filter(s =>
