@@ -51,6 +51,9 @@ export const enum Action {
     submitLetslogicCurrentPuzzleSolutions = "submitLetslogicCurrentPuzzleSolutions",
     submitLetslogicCollectionSolutions   = "submitLetslogicCollectionSolutions",
 
+    // Database specific actions
+    exportDatabase    = "exportDatabase",
+
     cellClicked = "cellClicked",
 }
 
@@ -110,6 +113,15 @@ export class GUI {
     private letslogicApiKeyModal      = document.getElementById("letslogicApiKeyModal")      as HTMLDivElement | null
     private letslogicApiKeyInput      = document.getElementById("letslogicApiKeyInput")      as HTMLInputElement | null
     private letslogicApiKeySaveButton = document.getElementById("letslogicApiKeySaveButton") as HTMLButtonElement | null
+
+    /* Datastorage menu */
+    private databaseBoardsCount  = document.getElementById("databaseBoardsCount")  as HTMLSpanElement | null
+    private databaseSolutionsCount = document.getElementById("databaseSolutionsCount") as HTMLSpanElement | null
+    private databaseSnapshotsCount = document.getElementById("databaseSnapshotsCount") as HTMLSpanElement | null
+
+    private databaseExportItem     = document.getElementById("databaseExport")     as HTMLDivElement | null
+    /** Database menu (for auto-refresh on open) */
+    private databaseMenu = document.getElementById("databaseMenu") as HTMLDivElement | null
 
     /**
      * Letslogic progress modal (shows that something is happening during submissions
@@ -839,9 +851,19 @@ export class GUI {
         bindClick(this.letslogicSubmitCurrentItem,    Action.submitLetslogicCurrentPuzzleSolutions)
         bindClick(this.letslogicSubmitCollectionItem, Action.submitLetslogicCollectionSolutions)
 
+        // Database menu
+        bindClick(this.databaseExportItem,    Action.exportDatabase)
+
         // Snapshot-UI specific controls that trigger Actions
         bindClick(this.importLURDStringButton,    Action.importLURDString)
         bindChange(this.showSnapshotListCheckbox, Action.toggleSnapshotList)
+
+        // Database menu: auto-refresh stats whenever the dropdown is opened
+        if (this.databaseMenu) {
+            this.databaseMenu.addEventListener("mouseenter", () => {
+                this.app.refreshDatabaseStats(false)
+            })
+        }
 
         this.collectionSelector.addEventListener("change", () => this.doAction(Action.collectionSelected))
         this.puzzleSelector.addEventListener("change",      () => this.doAction(Action.puzzleSelected))
@@ -1472,5 +1494,17 @@ export class GUI {
         this.letslogicApiKeyInput.value = Settings.letslogicApiKey || "";
 
         ($("#letslogicApiKeyModal") as any).modal("show")
+    }
+
+    public setDatabaseStats(boards: number, solutions: number, snapshots: number): void {
+        if (this.databaseBoardsCount) {
+            this.databaseBoardsCount.textContent = String(boards)
+        }
+        if (this.databaseSolutionsCount) {
+            this.databaseSolutionsCount.textContent = String(solutions)
+        }
+        if (this.databaseSnapshotsCount) {
+            this.databaseSnapshotsCount.textContent = String(snapshots)
+        }
     }
 }

@@ -237,8 +237,6 @@ export class BoxPathFinding {
         const lastStateOfPath = this.findPathTo(targetPosition)
 
         // Restore the original box at the start position.
-        // This mirrors the behavior of the original implementation,
-        // which removed the box during search and re-added it afterwards.
         this.board.setBox(startPosition)
 
         return lastStateOfPath ? this.reconstructBoxPathFrom(lastStateOfPath) : null

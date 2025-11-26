@@ -11,7 +11,7 @@ import { LURDVerifier } from "../services/lurdVerifier/LurdVerifier"
 import { Solution } from "../Sokoban/domainObjects/Solution"
 import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
 import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
-import { DataStorage } from "../storage/DataStorage"
+import {DataStorage, StoredBoardSnapshotsDTO} from "../storage/DataStorage"
 import { Messages } from "../gui/Messages"
 import { Collection } from "../Sokoban/domainObjects/Collection"
 import { LetslogicService } from "../services/letslogic/LetsLogicService"
@@ -704,6 +704,10 @@ export class SokobanApp {
                 void this.letslogicService.submitCurrentCollection(this.currentCollection, progress)
                 break
             }
+
+            case Action.exportDatabase:
+                void this.exportAllStoredSnapshotsToFile()
+                break
         }
     }
 
@@ -926,6 +930,173 @@ export class SokobanApp {
             "Copy successful",
             "Puzzle, solutions and snapshots have been copied to the clipboard."
         )
+    }
+
+    /**
+     * Exports all boards with their stored snapshots/solutions from DataStorage
+     * into a single text file that can be saved on disk.
+     *
+     * The format is compatible with the single-puzzle export used by
+     * copyPuzzleToClipboard(), repeated for each stored board.
+     */
+    public async exportAllStoredSnapshotsToFile(): Promise<void> {
+
+        const exportText = await this.buildStorageExportString()
+
+        if (!exportText || exportText.trim().length === 0) {
+            Messages.showWarningMessage(
+                "Nothing to export",
+                "There are no stored snapshots or solutions in the local data storage."
+            )
+            return
+        }
+
+        const blob = new Blob([exportText], { type: "text/plain;charset=utf-8" })
+        const url  = URL.createObjectURL(blob)
+
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "sokoban-storage-export.txt"
+
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+
+        URL.revokeObjectURL(url)
+
+        Messages.showSuccessMessage(
+            "Export successful",
+            "All stored puzzles, solutions and snapshots have been exported to a file."
+        )
+    }
+
+    /**
+     * Loads all stored boards from DataStorage, counts boards, solutions and
+     * snapshots and updates the database statistics display in the GUI.
+     *
+     * Optionally shows a notification in the message area.
+     */
+    private async updateDatabaseStatsInGUI(showNotification: boolean = false): Promise<void> {
+        try {
+            const entries = await DataStorage.loadAllBoardsWithSnapshots()
+
+            const boardsCount  = entries.length
+            let solutionsCount = 0
+            let snapshotsCount = 0
+
+            for (const entry of entries) {
+                for (const snap of entry.snapshots) {
+                    if (snap.isSolution) {
+                        solutionsCount++
+                    } else {
+                        snapshotsCount++
+                    }
+                }
+            }
+
+            // Update numbers in the Database menu
+            this.gui.setDatabaseStats(boardsCount, solutionsCount, snapshotsCount)
+
+            if (showNotification) {
+                Messages.showSuccessMessage(
+                    "Database statistics refreshed",
+                    `Stored boards: ${boardsCount}\n` +
+                    `Stored solutions: ${solutionsCount}\n` +
+                    `Stored snapshots: ${snapshotsCount}`
+                )
+            }
+
+        } catch (error) {
+            console.error("Failed to read database statistics", error)
+            Messages.showErrorMessage(
+                "Database error",
+                "Could not read database statistics. Please check the browser console for details."
+            )
+        }
+    }
+
+    /**
+     * Builds an export string for a single stored board entry
+     * (boardString + its stored solutions/snapshots).
+     *
+     * The format is intentionally similar to copyPuzzleToClipboard():
+     *
+     * <board>
+     *
+     * Title: Stored puzzle #N
+     *
+     * Solution <moves>/<pushes>
+     * <solution LURD>
+     *
+     * Snapshot <moves>/<pushes>
+     * <snapshot LURD>
+     */
+    private buildExportForStoredBoardEntry(
+        entry: StoredBoardSnapshotsDTO,
+        index: number
+    ): string {
+
+        const lines: string[] = []
+
+        const boardText = entry.boardString.replace(/\s+$/, "")
+        lines.push(boardText)
+        lines.push("")
+
+        const title = `Stored puzzle #${index + 1}`
+        lines.push(`Title: ${title}`)
+        lines.push("")
+
+        const solutions = entry.snapshots.filter(s => s.isSolution)
+        const snapshots = entry.snapshots.filter(s => !s.isSolution)
+
+        // We keep the stored order (no createdDate available in the DTO).
+        for (const solution of solutions) {
+            lines.push(`Solution ${solution.moveCount}/${solution.pushCount}`)
+            lines.push(this.formatLurdForExport(solution.lurd))
+            lines.push("")
+        }
+
+        if (snapshots.length > 0 && solutions.length > 0 && lines[lines.length - 1] !== "") {
+            lines.push("")
+        }
+
+        for (const snapshot of snapshots) {
+            lines.push(`Snapshot ${snapshot.moveCount}/${snapshot.pushCount}`)
+            lines.push(this.formatLurdForExport(snapshot.lurd))
+            lines.push("")
+        }
+
+        return lines.join("\n").replace(/\s+$/, "") + "\n"
+    }
+
+    /**
+     * Builds a multi-puzzle export string for all boards currently
+     * stored in DataStorage (new format with boardString).
+     */
+    private async buildStorageExportString(): Promise<string> {
+        const entries = await DataStorage.loadAllBoardsWithSnapshots()
+
+        if (entries.length === 0) {
+            return ""
+        }
+
+        const parts: string[] = []
+
+        entries.forEach((entry, index) => {
+            if (!entry.boardString || entry.boardString.trim().length === 0) {
+                return
+            }
+
+            if (parts.length > 0) {
+                // Separate puzzles by a blank line.
+                parts.push("")
+            }
+
+            parts.push(this.buildExportForStoredBoardEntry(entry, index))
+        })
+
+        const exportText = parts.join("\n").replace(/\s+$/, "") + "\n"
+        return exportText
     }
 
     // ---------------------------------------------------------------------
@@ -1345,5 +1516,9 @@ export class SokobanApp {
      */
     setCurrentCollection(collection: Collection | null): void {
         this.currentCollection = collection
+    }
+
+    public refreshDatabaseStats(showNotification: boolean = false): void {
+        void this.updateDatabaseStatsInGUI(showNotification)
     }
 }

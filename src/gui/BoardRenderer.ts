@@ -13,7 +13,7 @@ import { CommonSkinFormatBase, SpriteData } from "../skins/commonSkinFormat/Comm
 import { XSB_BACKGROUND, XSB_WALL } from "../Sokoban/PuzzleFormat"
 import { Settings } from "../app/Settings"
 import { Utilities } from "../Utilities/Utilities"
-import { DIRECTION, Directions, UP } from "../Sokoban/Directions"
+import { DIRECTION, UP } from "../Sokoban/Directions"
 
 /**
  * UI-level selection state.
@@ -27,6 +27,17 @@ export interface SelectionState {
     isPlayerSelected: boolean
 }
 
+/**
+ * Renderer responsible for drawing the board and handling
+ * selection animations in a robust, time-based manner.
+ *
+ * Key ideas for animations:
+ *  - Single requestAnimationFrame loop inside BoardRenderer.
+ *  - Time-based frame selection (no "frame-per-tick" assumptions).
+ *  - Robust against frame drops and GC pauses.
+ *  - Board rendering remains deterministic; selection animation is
+ *    drawn as a small overlay on top of the normal tiles.
+ */
 export class BoardRenderer {
 
     /** 2D drawing context of the canvas */
@@ -41,24 +52,33 @@ export class BoardRenderer {
      */
     private graphicDisplaySize = 44
 
-    // ---------------------------------------------------------------------
-    // Selection animation state
-    // ---------------------------------------------------------------------
-
-    /** Is the player selection animation currently running? */
-    private isShowPlayerSelectedAnimationActivated = false
-
-    /** Is the box selection animation currently running? */
-    private isShowBoxSelectedAnimationActivated = false
+    /**
+     * Last known selection state used for rendering animations.
+     * The GUI passes a fresh SelectionState into updateCanvas*().
+     */
+    private currentSelectionState: SelectionState = {
+        selectedBoxPosition: -1,
+        isPlayerSelected:    false
+    }
 
     /**
-     * Monotonically increasing counter used to invalidate old
-     * animation loops when a new one is started (e.g. new selection).
+     * Last known player view direction.
+     * Needed when re-drawing tiles under the animated selection overlay.
      */
-    private selectedObjectAnimationCount = 0
+    private lastPlayerDirection: DIRECTION = UP
 
-    /** Board position of the box whose selection animation is currently shown. */
-    private boxPositionAnAnimationIsShownFor = -1
+    // ---------------------------------------------------------------------
+    // Animation loop state (single RAF loop, time-based)
+    // ---------------------------------------------------------------------
+
+    /** requestAnimationFrame handle for the selection animation loop. */
+    private animationFrameId: number | null = null
+
+    /** Timestamp of the previous animation frame (for computing delta time). */
+    private lastAnimationTimestamp: DOMHighResTimeStamp | null = null
+
+    /** Accumulated animation time in milliseconds (monotonic across frames). */
+    private animationTimeMs = 0
 
     // ---------------------------------------------------------------------
     // Construction / configuration
@@ -165,18 +185,18 @@ export class BoardRenderer {
         )
     }
 
-// ---------------------------------------------------------------------
-// Layout helpers for GUI (board size in pixels)
-// ---------------------------------------------------------------------
+    // ---------------------------------------------------------------------
+    // Layout helpers for GUI (board size in pixels)
+    // ---------------------------------------------------------------------
 
     /** Returns the current board width in pixels (used to align toolbar etc.). */
     getBoardPixelWidth(): number {
-        return this.board.width * this.graphicDisplaySize;
+        return this.board.width * this.graphicDisplaySize
     }
 
     /** Returns the current board height in pixels (for completeness). */
     getBoardPixelHeight(): number {
-        return this.board.height * this.graphicDisplaySize;
+        return this.board.height * this.graphicDisplaySize
     }
 
     // ---------------------------------------------------------------------
@@ -209,202 +229,270 @@ export class BoardRenderer {
         playerDirection: DIRECTION
     ): void {
 
+        this.lastPlayerDirection = playerDirection
+
         for (const position of positions) {
-            const boardElement = this.board.getXSB_Char(position)
-
-            // Background tiles are never drawn; they simply remain empty.
-            if (boardElement === XSB_BACKGROUND) {
-                continue
-            }
-
-            const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
-
-            // Honor "hide walls" setting by clearing tiles that contain a wall.
-            if (boardElement === XSB_WALL && Settings.hideWallsFlag) {
-                this.ctx.clearRect(outputX, outputY, this.graphicDisplaySize, this.graphicDisplaySize)
-                continue
-            }
-
-            this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)   // For skins having a transparent player/box sprite
-
-            // Draw the main sprite for this position.
-            const spriteData = this.skin.getSprite(this.board, position, playerDirection)
-            this.drawSprite(spriteData, outputX, outputY)
-
-            // Optional reachability overlay (small circle).
-            const reachable = this.board.reachableMarker[position]
-            if (reachable === REACHABLE_PLAYER || reachable === REACHABLE_BOX) {
-                this.drawReachableGraphic(outputX, outputY)
-            }
+            this.drawBaseTileAtPosition(position, playerDirection)
         }
 
-        // Finally, ensure selection animations are started/stopped as needed.
-        this.showAnimations(selectionState)
+        // Update internal selection-animation state and ensure that
+        // the animation loop is started or stopped as required.
+        this.updateSelectionAnimationState(selectionState)
     }
 
     // ---------------------------------------------------------------------
-    // Animations (selection highlighting)
+    // Selection animation: state management + RAF loop
     // ---------------------------------------------------------------------
 
     /**
-     * Starts or stops selection animations for player/box as needed
-     * based on the provided SelectionState.
+     * Updates the internal selection animation state based on the provided
+     * SelectionState and starts/stops the animation loop accordingly.
      */
-    private showAnimations(selectionState: SelectionState): void {
+    private updateSelectionAnimationState(selectionState: SelectionState): void {
 
-        // If the skin has no animation sprites, selection animations are disabled.
-        if (this.skin.playerSelectedAnimationSprites.length === 0) {
+        const prev = this.currentSelectionState
+        const next: SelectionState = {
+            selectedBoxPosition: selectionState.selectedBoxPosition,
+            isPlayerSelected:    selectionState.isPlayerSelected
+        }
+
+        const hasChanged =
+            prev.selectedBoxPosition !== next.selectedBoxPosition ||
+            prev.isPlayerSelected    !== next.isPlayerSelected
+
+        this.currentSelectionState = next
+
+        // If animation is globally disabled or there are no animation sprites,
+        // we shut down the loop immediately.
+        if (!Settings.showAnimationFlag || !this.hasAnySelectionAnimationSprites()) {
+            this.stopAnimationLoop()
             return
         }
 
-        const { selectedBoxPosition, isPlayerSelected } = selectionState
-
-        // Stop box animation if a different box is selected or nothing is selected.
-        if (
-            this.isShowBoxSelectedAnimationActivated &&
-            this.boxPositionAnAnimationIsShownFor !== selectedBoxPosition
-        ) {
-            this.isShowBoxSelectedAnimationActivated = false
-        }
-
-        if (Settings.showAnimationFlag) {
-            // Player animation
-            if (isPlayerSelected && !this.isShowPlayerSelectedAnimationActivated) {
-                this.showPlayerSelectedAnimation()
+        // Determine if there is any active animation target.
+        if (this.hasActiveSelectionTargets()) {
+            // Start the loop if it is not already running.
+            // If the selection changed, restart timing so the animation
+            // begins from frame 0 in the new context.
+            if (hasChanged || this.animationFrameId == null) {
+                this.resetAnimationTiming()
+                this.startAnimationLoop()
             }
-
-            // Box animation
-            if (selectedBoxPosition !== -1 && !this.isShowBoxSelectedAnimationActivated) {
-                this.showBoxSelectedAnimation(selectedBoxPosition)
-            }
-        }
-
-        // Clean up flags if selection was removed
-        if (selectedBoxPosition === -1 && this.isShowBoxSelectedAnimationActivated) {
-            this.isShowBoxSelectedAnimationActivated = false
-        }
-        if (!isPlayerSelected && this.isShowPlayerSelectedAnimationActivated) {
-            this.isShowPlayerSelectedAnimationActivated = false
+        } else {
+            this.stopAnimationLoop()
         }
     }
 
+    /** Returns true if the current skin provides any selection animation sprites. */
+    private hasAnySelectionAnimationSprites(): boolean {
+        return (
+            this.skin.playerSelectedAnimationSprites.length > 0 ||
+            this.skin.playerOnGoalSelectedAnimationSprites.length > 0 ||
+            this.skin.boxSelectedAnimationSprites.length > 0 ||
+            this.skin.boxOnGoalSelectedAnimationSprites.length > 0
+        )
+    }
+
+    /** Returns true if there is at least one active selection (player or box). */
+    private hasActiveSelectionTargets(): boolean {
+        return (
+            this.currentSelectionState.isPlayerSelected ||
+            this.currentSelectionState.selectedBoxPosition !== -1
+        )
+    }
+
+    /** Resets timing state for the animation loop. */
+    private resetAnimationTiming(): void {
+        this.animationTimeMs = 0
+        this.lastAnimationTimestamp = null
+    }
+
+    /** Starts the animation RAF loop if not already running. */
+    private startAnimationLoop(): void {
+        if (this.animationFrameId != null) {
+            return
+        }
+
+        const loop = (timestamp: DOMHighResTimeStamp) => {
+            // Animation may be stopped between frames.
+            if (this.animationFrameId == null) {
+                return
+            }
+
+            if (this.lastAnimationTimestamp == null) {
+                this.lastAnimationTimestamp = timestamp
+            }
+
+            const deltaMs = timestamp - this.lastAnimationTimestamp
+            this.lastAnimationTimestamp = timestamp
+
+            // Accumulate animation time (monotonic).
+            this.animationTimeMs += deltaMs
+
+            // Redraw selection overlays based on accumulated time.
+            this.redrawSelectionAnimations()
+
+            // Keep looping as long as there are active targets and animation is enabled.
+            if (Settings.showAnimationFlag && this.hasActiveSelectionTargets()) {
+                this.animationFrameId = requestAnimationFrame(loop)
+            } else {
+                this.stopAnimationLoop()
+            }
+        }
+
+        this.animationFrameId = requestAnimationFrame(loop)
+    }
+
+    /** Stops the animation RAF loop and clears timing state. */
+    private stopAnimationLoop(): void {
+        if (this.animationFrameId != null) {
+            cancelAnimationFrame(this.animationFrameId)
+            this.animationFrameId = null
+        }
+        this.lastAnimationTimestamp = null
+        this.animationTimeMs = 0
+    }
+
     /**
-     * Shows repeated animation over the currently selected box.
+     * Called from the external GUI when animation-related parameters
+     * (skin, speed, global enable flag) change.
      *
-     * The animation runs in a requestAnimationFrame loop and
-     * automatically stops when:
-     *  - a different box is selected, or
-     *  - the selection is cleared.
-     */
-    private showBoxSelectedAnimation(selectedBoxPosition: number): void {
-        const animationGraphics = this.board.isGoal(selectedBoxPosition)
-            ? this.skin.boxOnGoalSelectedAnimationSprites
-            : this.skin.boxSelectedAnimationSprites
-
-        const drawNextAnimationGraphic =
-            this.getDrawAnimationGraphicsAtPositionFunction(animationGraphics, selectedBoxPosition)
-
-        this.isShowBoxSelectedAnimationActivated = true
-        this.boxPositionAnAnimationIsShownFor    = selectedBoxPosition
-
-        const animationTimestamp = ++this.selectedObjectAnimationCount
-        const isAnimationActive = () =>
-            this.isShowBoxSelectedAnimationActivated &&
-            animationTimestamp === this.selectedObjectAnimationCount
-
-        let previousTimestamp = 0
-
-        const drawGraphicLoop = (timestamp: DOMHighResTimeStamp) => {
-            const elapsedInMs = timestamp - previousTimestamp
-
-            // 1 animation loop per second at 100%, scaled by Settings.selectedObjectAnimationsSpeedPercent.
-            const currentAnimationDelayInMs =
-                (1000 / animationGraphics.length / Settings.selectedObjectAnimationsSpeedPercent) * 100
-
-            if (isAnimationActive()) {
-                if (elapsedInMs >= currentAnimationDelayInMs) {
-                    drawNextAnimationGraphic()
-                    previousTimestamp = timestamp
-                }
-                requestAnimationFrame(drawGraphicLoop)
-            }
-        }
-
-        requestAnimationFrame(drawGraphicLoop)
-    }
-
-    /**
-     * Shows repeated animation over the player when selected.
-     * Same logic as box animation, just using player sprites.
-     */
-    private showPlayerSelectedAnimation(): void {
-        const animationGraphics = this.board.isGoal(this.board.playerPosition)
-            ? this.skin.playerOnGoalSelectedAnimationSprites
-            : this.skin.playerSelectedAnimationSprites
-
-        const drawNextAnimationGraphic =
-            this.getDrawAnimationGraphicsAtPositionFunction(animationGraphics, this.board.playerPosition)
-
-        this.isShowPlayerSelectedAnimationActivated = true
-
-        const animationTimestamp = ++this.selectedObjectAnimationCount
-        const isAnimationActive = () =>
-            this.isShowPlayerSelectedAnimationActivated &&
-            animationTimestamp === this.selectedObjectAnimationCount
-
-        let previousTimestamp = 0
-
-        const drawGraphicLoop = (timestamp: DOMHighResTimeStamp) => {
-            const elapsedInMs = timestamp - previousTimestamp
-            const currentAnimationDelayInMs =
-                (1000 / animationGraphics.length / Settings.selectedObjectAnimationsSpeedPercent) * 100
-
-            if (isAnimationActive()) {
-                if (elapsedInMs >= currentAnimationDelayInMs) {
-                    drawNextAnimationGraphic()
-                    previousTimestamp = timestamp
-                }
-                requestAnimationFrame(drawGraphicLoop)
-            }
-        }
-
-        requestAnimationFrame(drawGraphicLoop)
-    }
-
-    /**
-     * Returns a function that cycles through the given sprite list
-     * and draws one sprite per call at the given board position.
-     *
-     * Used by the animation loops for player and box highlighting.
-     */
-    private getDrawAnimationGraphicsAtPositionFunction(
-        graphics: Array<SpriteData>,
-        position: number
-    ): () => void {
-
-        const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
-        const animationGraphics = graphics
-
-        let graphicIndex = 0
-
-        return () => {
-            this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)   // For skins having a transparent player/box sprite
-            this.drawSprite(animationGraphics[graphicIndex], outputX, outputY)
-            graphicIndex = (graphicIndex + 1) % animationGraphics.length
-        }
-    }
-
-    /**
-     * If any animations are running, stop them.
-     * Call this when animation parameters or the skin change so that
-     * new animations are started with the updated configuration.
+     * Effect:
+     *  - stops the current loop
+     *  - resets timing
+     *  - will be restarted automatically on the next updateCanvas*()
+     *    if selection and Settings.showAnimationFlag still demand it.
      */
     restartAnimations(): void {
-        if (this.isShowPlayerSelectedAnimationActivated) {
-            this.isShowPlayerSelectedAnimationActivated = false
+        this.stopAnimationLoop()
+    }
+
+    /**
+     * Redraws selection highlight animations for the current selection state.
+     *
+     * This method:
+     *  - uses time-based frame selection (robust to frame drops),
+     *  - re-draws the underlying tile and then draws the selection sprite on top,
+     *    so that animations remain visually consistent with the board underneath.
+     */
+    private redrawSelectionAnimations(): void {
+
+        if (!Settings.showAnimationFlag) {
+            return
         }
-        if (this.isShowBoxSelectedAnimationActivated) {
-            this.isShowBoxSelectedAnimationActivated = false
+
+        const timeMs = this.animationTimeMs
+
+        // --- Player selection animation ---
+
+        if (this.currentSelectionState.isPlayerSelected) {
+            const playerPos = this.board.playerPosition
+            const onGoal    = this.board.isGoal(playerPos)
+
+            const sprites = onGoal
+                ? this.skin.playerOnGoalSelectedAnimationSprites
+                : this.skin.playerSelectedAnimationSprites
+
+            if (sprites.length > 0) {
+                const frameIndex = this.computeAnimationFrameIndex(sprites.length, timeMs)
+                const sprite     = sprites[frameIndex]
+
+                this.redrawTileWithOverlay(playerPos, sprite)
+            }
+        }
+
+        // --- Box selection animation ---
+
+        const boxPos = this.currentSelectionState.selectedBoxPosition
+
+        if (boxPos !== -1) {
+            const onGoal = this.board.isGoal(boxPos)
+
+            const sprites = onGoal
+                ? this.skin.boxOnGoalSelectedAnimationSprites
+                : this.skin.boxSelectedAnimationSprites
+
+            if (sprites.length > 0) {
+                const frameIndex = this.computeAnimationFrameIndex(sprites.length, timeMs)
+                const sprite     = sprites[frameIndex]
+
+                this.redrawTileWithOverlay(boxPos, sprite)
+            }
+        }
+    }
+
+    /**
+     * Computes which animation frame to show for a sprite sequence of the given
+     * length at a specific animation time (in milliseconds).
+     *
+     * The frame duration is derived from:
+     *   - full cycle ≈ 1000 ms at 100% speed
+     *   - scaled by Settings.selectedObjectAnimationsSpeedPercent
+     *
+     * This function is purely time-based and robust against frame drops.
+     */
+    private computeAnimationFrameIndex(frameCount: number, timeMs: number): number {
+        const speedPercent = Settings.selectedObjectAnimationsSpeedPercent || 100
+
+        // Base duration for a full cycle: 1000 ms.
+        // At 100% speed with N frames, each frame gets 1000 / N ms.
+        const baseFrameDurationMs = 1000 / frameCount
+
+        // Higher speedPercent => shorter frame duration (faster animation).
+        const frameDurationMs = baseFrameDurationMs * (100 / speedPercent)
+
+        const normalized = timeMs / frameDurationMs
+        const index = Math.floor(normalized) % frameCount
+
+        return index < 0 ? 0 : index
+    }
+
+    /**
+     * Redraws the base tile at the given position and then draws the
+     * specified overlay sprite (used for selection highlight frames).
+     */
+    private redrawTileWithOverlay(position: number, overlaySprite: SpriteData): void {
+        this.drawBaseTileAtPosition(position, this.lastPlayerDirection)
+
+        const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
+        this.drawSprite(overlaySprite, outputX, outputY)
+    }
+
+    // ---------------------------------------------------------------------
+    // Base tile drawing (no selection overlays)
+    // ---------------------------------------------------------------------
+
+    /**
+     * Draws the tile at the given board position (floor, walls, boxes, player, etc.),
+     * including reachability markers, but without any selection animation overlay.
+     */
+    private drawBaseTileAtPosition(position: number, playerDirection: DIRECTION): void {
+        const boardElement = this.board.getXSB_Char(position)
+
+        // Background tiles are never drawn; they simply remain empty.
+        if (boardElement === XSB_BACKGROUND) {
+            return
+        }
+
+        const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
+
+        // Honor "hide walls" setting by clearing tiles that contain a wall.
+        if (boardElement === XSB_WALL && Settings.hideWallsFlag) {
+            this.ctx.clearRect(outputX, outputY, this.graphicDisplaySize, this.graphicDisplaySize)
+            return
+        }
+
+        // For skins with transparent player/box sprites, draw the floor first.
+        this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)
+
+        // Draw the main sprite at this position (walls, goals, boxes, player, ...).
+        const spriteData = this.skin.getSprite(this.board, position, playerDirection)
+        this.drawSprite(spriteData, outputX, outputY)
+
+        // Optional reachability overlay (small circle).
+        const reachable = this.board.reachableMarker[position]
+        if (reachable === REACHABLE_PLAYER || reachable === REACHABLE_BOX) {
+            this.drawReachableGraphic(outputX, outputY)
         }
     }
 

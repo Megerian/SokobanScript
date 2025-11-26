@@ -4,7 +4,10 @@ import { Solution } from "../Sokoban/domainObjects/Solution"
 import { Metrics } from "../Sokoban/domainObjects/Metrics"
 import { Board } from "../board/Board"
 
-interface StoredSnapshotDTO {
+/**
+ * DTO for a snapshot/solution stored in localforage.
+ */
+export interface StoredSnapshotDTO {
     lurd: string
     name: string
     notes: string
@@ -20,14 +23,11 @@ interface StoredSnapshotDTO {
 /**
  * Container for all snapshots/solutions belonging to a specific board.
  *
- * This is the NEW format used for storage:
+ * Storage format:
  *  - boardString: layout of the board (so we can reconstruct/export later)
  *  - snapshots:  list of snapshot/solution DTOs
- *
- * Older stored data may still be just an array<StoredSnapshotDTO>; we handle
- * that transparently for backwards compatibility.
  */
-interface StoredBoardSnapshotsDTO {
+export interface StoredBoardSnapshotsDTO {
     boardString: string
     snapshots: StoredSnapshotDTO[]
 }
@@ -91,16 +91,17 @@ export class DataStorage {
     }
 
     // -------------------------------------------------------------------------
-    // Internal helpers for board + snapshot container (new format)
+    // Internal helpers for board + snapshot container
     // -------------------------------------------------------------------------
 
     /**
      * Loads the StoredBoardSnapshotsDTO for the given board.
      *
-     * Backwards compatible:
+     * Behavior:
      *  - If nothing is stored yet, returns an empty DTO with the current boardString.
-     *  - If the stored value is an array<StoredSnapshotDTO>, wraps it into the new DTO.
-     *  - If the stored value is already a StoredBoardSnapshotsDTO, returns it.
+     *  - If the stored value is an array<StoredSnapshotDTO>, wraps it into a DTO.
+     *  - If the stored value is already a StoredBoardSnapshotsDTO, returns it
+     *    (with defensive defaults).
      */
     private static async loadBoardSnapshotsEntry(board: Board): Promise<StoredBoardSnapshotsDTO> {
         const key = this.getSnapshotStorageKey(board)
@@ -115,7 +116,7 @@ export class DataStorage {
             }
         }
 
-        // Old format: plain array of snapshots.
+        // Format: plain array of snapshots.
         if (Array.isArray(raw)) {
             return {
                 boardString: board.getBoardAsString(),
@@ -123,7 +124,7 @@ export class DataStorage {
             }
         }
 
-        // New format.
+        // Expected format: StoredBoardSnapshotsDTO.
         const dto = raw as StoredBoardSnapshotsDTO
 
         // Be defensive: ensure boardString and snapshots exist.
@@ -154,6 +155,45 @@ export class DataStorage {
         }
 
         await localforage.setItem(key, entry)
+    }
+
+    // -------------------------------------------------------------------------
+    // Loading all boards with snapshots (for export)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Loads all StoredBoardSnapshotsDTO entries that are currently stored in localforage.
+     *
+     * Any entry that does not contain a valid boardString and a snapshots array
+     * is simply skipped and not processed further.
+     */
+    static async loadAllBoardsWithSnapshots(): Promise<StoredBoardSnapshotsDTO[]> {
+        const result: StoredBoardSnapshotsDTO[] = []
+
+        await localforage.iterate<unknown, void>((value, key) => {
+
+            if (typeof key !== "string" || !key.startsWith("snapshots:")) {
+                return
+            }
+
+            if (!value || typeof value !== "object") {
+                return
+            }
+
+            const dto = value as Partial<StoredBoardSnapshotsDTO>
+
+            if (typeof dto.boardString !== "string" || !Array.isArray(dto.snapshots)) {
+                // Entry has no usable board information -> ignore it.
+                return
+            }
+
+            result.push({
+                boardString: dto.boardString,
+                snapshots:   dto.snapshots.slice() // shallow copy for safety
+            })
+        })
+
+        return result
     }
 
     // -------------------------------------------------------------------------

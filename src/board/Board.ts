@@ -114,7 +114,7 @@ export class Board {
 
 
     /**
-     * Returns whether the given position is accessible for the man or a box.
+     * Returns whether the given position is accessible for the player or a box.
      * This means at the given position there is NO wall NOR box.
      */
     isAccessible(position: number) {
@@ -200,7 +200,7 @@ export class Board {
 
     /**
      * Returns the direction of the move from 'startPosition' to 'endPosition'.
-     * If the both positions aren't adjacent on the elements a RangeError is thrown.
+     * If the both positions aren't adjacent, a RangeError is thrown.
      */
     getDirectionOfMove(startPosition: number, endPosition: number): DIRECTION {
         const diff = endPosition - startPosition
@@ -249,7 +249,7 @@ export class Board {
         const width = lines.map(line => line.length)
                                    .reduce((a, b) => Math.max(a, b), -Infinity)
 
-        if(width == 0 || height == 0) {
+        if(width < 3 || height < 3) {
             return "No valid board"
         }
 
