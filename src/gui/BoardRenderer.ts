@@ -16,11 +16,17 @@ import { Utilities } from "../Utilities/Utilities"
 import { DIRECTION, UP } from "../Sokoban/Directions"
 
 /**
+ * Special value indicating that no box is currently selected.
+ * This is kept local to the rendering layer (no dependency on SokobanApp.NONE).
+ */
+const NO_SELECTION = -1
+
+/**
  * UI-level selection state.
  *
  * Conventions:
- *  - selectedBoxPosition === -1  → no box is currently selected
- *  - isPlayerSelected === true   → player selection animation should be active
+ *  - selectedBoxPosition === NO_SELECTION → no box is currently selected
+ *  - isPlayerSelected === true           → player selection animation should be active
  */
 export interface SelectionState {
     selectedBoxPosition: number
@@ -41,7 +47,7 @@ export interface SelectionState {
 export class BoardRenderer {
 
     /** 2D drawing context of the canvas */
-    private ctx: CanvasRenderingContext2D
+    private readonly ctx: CanvasRenderingContext2D
 
     /**
      * Size (in pixels) of one logical board cell when rendered on the canvas.
@@ -57,7 +63,7 @@ export class BoardRenderer {
      * The GUI passes a fresh SelectionState into updateCanvas*().
      */
     private currentSelectionState: SelectionState = {
-        selectedBoxPosition: -1,
+        selectedBoxPosition: NO_SELECTION,
         isPlayerSelected:    false
     }
 
@@ -105,7 +111,7 @@ export class BoardRenderer {
 
     /**
      * Updates the board reference (e.g. when a new puzzle is loaded).
-     * Also recomputes the graphic size because board width/height changed.
+     * Also recomputes the graphic size because board width/height may change.
      */
     setBoard(board: Board): void {
         this.board = board
@@ -133,8 +139,8 @@ export class BoardRenderer {
         const canvasRect = this.canvas.getBoundingClientRect()
         const MARGIN = 32
 
-        const availableHorizontalSize = window.innerWidth  - canvasRect.left - MARGIN
-        const availableVerticalSize   = window.innerHeight - canvasRect.top  - MARGIN
+        const availableHorizontalSize = Math.max(0, window.innerWidth  - canvasRect.left - MARGIN)
+        const availableVerticalSize   = Math.max(0, window.innerHeight - canvasRect.top  - MARGIN)
 
         this.canvas.width  = availableHorizontalSize
         this.canvas.height = availableVerticalSize
@@ -159,7 +165,7 @@ export class BoardRenderer {
             ? maxSizeByWindow        // let window size decide
             : +Settings.graphicSize  // fixed size from settings
 
-        // Final size: never larger than what fits into the canvas
+        // Final size: never larger than what actually fits into the canvas
         const newGraphicSize = Math.min(requestedSize, maxSizeByWindow)
         this.graphicDisplaySize = newGraphicSize
     }
@@ -171,12 +177,23 @@ export class BoardRenderer {
      */
     private getMaximalGraphicSize(): number {
 
-        const maxWidth  = Math.floor(this.canvas.width  / this.board.width)
-        const maxHeight = Math.floor(this.canvas.height / this.board.height)
-        const maxGraphicSizeForWindow = Math.min(maxWidth, maxHeight)
-
         const MINIMUM_GRAPHIC_SIZE = 16
         const MAXIMUM_GRAPHIC_SIZE = Math.min(64, this.skin.getImageSize())
+
+        // Defensive: avoid division by zero if board is not properly initialized.
+        if (this.board.width <= 0 || this.board.height <= 0) {
+            return MINIMUM_GRAPHIC_SIZE
+        }
+
+        const maxWidth  = Math.floor(this.canvas.width  / this.board.width)
+        const maxHeight = Math.floor(this.canvas.height / this.board.height)
+
+        const maxGraphicSizeForWindow = Math.min(maxWidth, maxHeight)
+
+        // If the board does not fit at all, fall back to minimum so something is visible.
+        if (maxGraphicSizeForWindow <= 0) {
+            return MINIMUM_GRAPHIC_SIZE
+        }
 
         return Utilities.coerceIn(
             maxGraphicSizeForWindow,
@@ -297,7 +314,7 @@ export class BoardRenderer {
     private hasActiveSelectionTargets(): boolean {
         return (
             this.currentSelectionState.isPlayerSelected ||
-            this.currentSelectionState.selectedBoxPosition !== -1
+            this.currentSelectionState.selectedBoxPosition !== NO_SELECTION
         )
     }
 
@@ -405,7 +422,7 @@ export class BoardRenderer {
 
         const boxPos = this.currentSelectionState.selectedBoxPosition
 
-        if (boxPos !== -1) {
+        if (boxPos !== NO_SELECTION) {
             const onGoal = this.board.isGoal(boxPos)
 
             const sprites = onGoal
@@ -432,7 +449,13 @@ export class BoardRenderer {
      * This function is purely time-based and robust against frame drops.
      */
     private computeAnimationFrameIndex(frameCount: number, timeMs: number): number {
-        const speedPercent = Settings.selectedObjectAnimationsSpeedPercent || 100
+        if (frameCount <= 0) {
+            return 0
+        }
+
+        const rawSpeed = Settings.selectedObjectAnimationsSpeedPercent ?? 100
+        // Avoid division by zero or negative speeds; clamp to at least 1%.
+        const speedPercent = rawSpeed > 0 ? rawSpeed : 1
 
         // Base duration for a full cycle: 1000 ms.
         // At 100% speed with N frames, each frame gets 1000 / N ms.
@@ -558,15 +581,18 @@ export class BoardRenderer {
     private drawReachableGraphic(outputX: number, outputY: number): void {
         const circleX = outputX + Math.round(this.graphicDisplaySize / 2)
         const circleY = outputY + Math.round(this.graphicDisplaySize / 2)
+        const radius  = Math.floor(this.graphicDisplaySize * 0.15)
 
-        const radius = Math.floor(this.graphicDisplaySize * 0.15)
+        // Filled circle
         this.ctx.beginPath()
         this.ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI)
         this.ctx.fillStyle = Settings.reachablePositionColor
         this.ctx.fill()
 
-        this.ctx.strokeStyle = "rgba(0, 0, 0, 0.7)"
+        // Stroke outline (separate path for clarity)
+        this.ctx.beginPath()
         this.ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI)
+        this.ctx.strokeStyle = "rgba(0, 0, 0, 0.7)"
         this.ctx.stroke()
     }
 

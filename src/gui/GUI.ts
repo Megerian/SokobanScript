@@ -1,3 +1,13 @@
+// GUI.ts
+//
+// High-level UI orchestration for the Sokoban application.
+// Responsible for:
+//  - Wiring DOM elements (menus, toolbar, canvas, sidebars) to application actions.
+//  - Delegating board rendering to BoardRenderer.
+//  - Delegating keyboard handling to KeyboardController via UiActions.
+//  - Delegating ruler rendering/highlighting to BoardRulerView.
+//  - Coordinating snapshot sidebar and Letslogic integration.
+
 import { Board } from "../board/Board"
 import { NONE, SokobanApp } from "../app/SokobanApp"
 import { CommonSkinFormatBase, SKIN_NAME } from "../skins/commonSkinFormat/CommonSkinFormatBase"
@@ -6,13 +16,16 @@ import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
 import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
 import { Collection } from "../Sokoban/domainObjects/Collection"
 import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
-import {DIRECTION, Directions, DOWN} from "../Sokoban/Directions"
+import { DIRECTION, Directions, DOWN } from "../Sokoban/Directions"
 import { NightShift3Skin } from "../skins/commonSkinFormat/NighShift3Skin"
 import { SkinLoader } from "../skins/SkinLoader"
 import { Solution } from "../Sokoban/domainObjects/Solution"
 import { BoardRenderer, SelectionState } from "./BoardRenderer"
 import { SnapshotSidebarCallbacks, SnapshotSidebarView } from "./SnapshotSidebarView"
 import { LetslogicProgressCallbacks } from "../services/letslogic/LetsLogicService"
+import { KeyboardController } from "./KeyboardController"
+import { BoardRulerView } from "./BoardRulerView"
+import { UiAction } from "./UiActions"
 
 export const enum Action {
     puzzleSelected = "puzzleSelected",
@@ -52,144 +65,184 @@ export const enum Action {
     submitLetslogicCollectionSolutions   = "submitLetslogicCollectionSolutions",
 
     // Database specific actions
-    exportDatabase    = "exportDatabase",
+    exportDatabase = "exportDatabase",
 
     cellClicked = "cellClicked",
 }
 
 export class GUI {
 
-    // --- Status elements used by SokobanApp ---
-    movesText  = document.getElementById("moves")  as HTMLSpanElement
-    pushesText = document.getElementById("pushes") as HTMLSpanElement
+    // ---------------------------------------------------------------------
+    // Status elements used by SokobanApp
+    // ---------------------------------------------------------------------
 
-    /** View menu (skin, animation, etc.) */
-    private skinItems                         = document.querySelectorAll("[data-skinName]")
-    private graphicSizeSelectorItems          = document.querySelectorAll("[data-skinGraphicSize]")
-    private moveAnimationDelayItems           = document.querySelectorAll("[data-moveAnimationDelay]")
-    private selectedObjectAnimationDelayItems = document.querySelectorAll("[data-selectedObjectAnimationDelay]")
-    private showAnimationsCheckbox            = document.getElementById("showAnimations") as HTMLInputElement
+    readonly movesText  = document.getElementById("moves")  as HTMLSpanElement
+    readonly pushesText = document.getElementById("pushes") as HTMLSpanElement
+
+    // ---------------------------------------------------------------------
+    // View menu (skin, animation, ruler)
+    // ---------------------------------------------------------------------
+
+    private readonly skinItems                         = document.querySelectorAll<HTMLElement>("[data-skinName]")
+    private readonly graphicSizeSelectorItems          = document.querySelectorAll<HTMLElement>("[data-skinGraphicSize]")
+    private readonly moveAnimationDelayItems           = document.querySelectorAll<HTMLElement>("[data-moveAnimationDelay]")
+    private readonly selectedObjectAnimationDelayItems = document.querySelectorAll<HTMLElement>("[data-selectedObjectAnimationDelay]")
+    private readonly showAnimationsCheckbox            = document.getElementById("showAnimations") as HTMLInputElement
 
     /** Ruler checkbox (View menu) */
-    private showRulerCheckbox                 = document.getElementById("showRuler") as HTMLInputElement
+    private readonly showRulerCheckbox = document.getElementById("showRuler") as HTMLInputElement | null
 
     /** Ruler containers around the board */
-    private boardRulerTop  = document.getElementById("boardRulerTop") as HTMLDivElement
-    private boardRulerLeft = document.getElementById("boardRulerLeft") as HTMLDivElement
+    private readonly boardRulerTop  = document.getElementById("boardRulerTop") as HTMLDivElement
+    private readonly boardRulerLeft = document.getElementById("boardRulerLeft") as HTMLDivElement
 
-    /** Currently highlighted ruler cells (column + row) */
-    private highlightedRulerCol: HTMLElement | null = null
-    private highlightedRulerRow: HTMLElement | null = null
+    // ---------------------------------------------------------------------
+    // Settings menu
+    // ---------------------------------------------------------------------
 
-    /** Settings menu */
+    // Sound
+    private readonly soundEnabledCheckbox = document.getElementById("soundEnabled") as HTMLInputElement
 
-        // Sound
-    private soundEnabledCheckbox = document.getElementById("soundEnabled") as HTMLInputElement
     // Background
-    private backgroundColor           = document.getElementById("backgroundColor")           as HTMLInputElement
-    private setDefaultBackgroundColor = document.getElementById("setDefaultBackgroundColor") as HTMLElement
-    private setDropsBackgroundImage   = document.getElementById("setDropsBackgroundImage")   as HTMLElement
+    private readonly backgroundColor           = document.getElementById("backgroundColor")           as HTMLInputElement
+    private readonly setDefaultBackgroundColor = document.getElementById("setDefaultBackgroundColor") as HTMLElement
+    private readonly setDropsBackgroundImage   = document.getElementById("setDropsBackgroundImage")   as HTMLElement
 
-    /** Toolbar elements */
-    undoAllButton  = document.getElementById("undoAllButton")  as HTMLButtonElement
-    undoButton     = document.getElementById("undoButton")     as HTMLButtonElement
-    redoButton     = document.getElementById("redoButton")     as HTMLButtonElement
-    redoAllButton  = document.getElementById("redoAllButton")  as HTMLButtonElement
-    private hideWallsCheckbox         = document.getElementById("hideWalls")                  as HTMLInputElement
-    private copyMovesAsString         = document.getElementById("copyMovesAsString")          as HTMLElement
-    private pasteMovesFromClipboard   = document.getElementById("pasteMovesFromClipboard")    as HTMLElement
-    private importPuzzleFromClipboard = document.getElementById("importPuzzleFromClipboard")  as HTMLElement
-    private exportPuzzleFromClipboard = document.getElementById("exportPuzzleFromClipboard")  as HTMLElement
-    private importPuzzleFromFile      = document.getElementById("importPuzzleFromFile")       as HTMLDivElement
-    private puzzleFileInput           = document.getElementById("puzzleFileInput")            as HTMLInputElement
-    private howToPlayMenuItem         = document.getElementById("howToPlay")                  as HTMLInputElement
+    // ---------------------------------------------------------------------
+    // Toolbar elements
+    // ---------------------------------------------------------------------
 
-    /** Letslogic menu */
-    private letslogicSetApiKeyItem        = document.getElementById("letslogicSetApiKey")        as HTMLDivElement
-    private letslogicSubmitCurrentItem    = document.getElementById("letslogicSubmitCurrent")    as HTMLDivElement
-    private letslogicSubmitCollectionItem = document.getElementById("letslogicSubmitCollection") as HTMLDivElement
+    readonly undoAllButton  = document.getElementById("undoAllButton")  as HTMLButtonElement
+    readonly undoButton     = document.getElementById("undoButton")     as HTMLButtonElement
+    readonly redoButton     = document.getElementById("redoButton")     as HTMLButtonElement
+    readonly redoAllButton  = document.getElementById("redoAllButton")  as HTMLButtonElement
+
+    private readonly hideWallsCheckbox         = document.getElementById("hideWalls")                 as HTMLInputElement
+    private readonly copyMovesAsString         = document.getElementById("copyMovesAsString")         as HTMLElement
+    private readonly pasteMovesFromClipboard   = document.getElementById("pasteMovesFromClipboard")   as HTMLElement
+    private readonly importPuzzleFromClipboard = document.getElementById("importPuzzleFromClipboard") as HTMLElement
+    private readonly exportPuzzleFromClipboard = document.getElementById("exportPuzzleFromClipboard") as HTMLElement
+    private readonly importPuzzleFromFile      = document.getElementById("importPuzzleFromFile")      as HTMLDivElement | null
+    private readonly puzzleFileInput           = document.getElementById("puzzleFileInput")           as HTMLInputElement | null
+    private readonly howToPlayMenuItem         = document.getElementById("howToPlay")                 as HTMLElement | null
+
+    // ---------------------------------------------------------------------
+    // Letslogic menu & dialogs
+    // ---------------------------------------------------------------------
+
+    private readonly letslogicSetApiKeyItem        = document.getElementById("letslogicSetApiKey")        as HTMLDivElement | null
+    private readonly letslogicSubmitCurrentItem    = document.getElementById("letslogicSubmitCurrent")    as HTMLDivElement | null
+    private readonly letslogicSubmitCollectionItem = document.getElementById("letslogicSubmitCollection") as HTMLDivElement | null
 
     /** Letslogic API key modal (for clickable link + input) */
-    private letslogicApiKeyModal      = document.getElementById("letslogicApiKeyModal")      as HTMLDivElement | null
-    private letslogicApiKeyInput      = document.getElementById("letslogicApiKeyInput")      as HTMLInputElement | null
-    private letslogicApiKeySaveButton = document.getElementById("letslogicApiKeySaveButton") as HTMLButtonElement | null
+    private readonly letslogicApiKeyModal      = document.getElementById("letslogicApiKeyModal")      as HTMLDivElement | null
+    private readonly letslogicApiKeyInput      = document.getElementById("letslogicApiKeyInput")      as HTMLInputElement | null
+    private readonly letslogicApiKeySaveButton = document.getElementById("letslogicApiKeySaveButton") as HTMLButtonElement | null
 
-    /* Datastorage menu */
-    private databaseBoardsCount  = document.getElementById("databaseBoardsCount")  as HTMLSpanElement | null
-    private databaseSolutionsCount = document.getElementById("databaseSolutionsCount") as HTMLSpanElement | null
-    private databaseSnapshotsCount = document.getElementById("databaseSnapshotsCount") as HTMLSpanElement | null
+    // ---------------------------------------------------------------------
+    // Database menu & stats
+    // ---------------------------------------------------------------------
 
-    private databaseExportItem     = document.getElementById("databaseExport")     as HTMLDivElement | null
+    private readonly databaseBoardsCount    = document.getElementById("databaseBoardsCount")    as HTMLSpanElement | null
+    private readonly databaseSolutionsCount = document.getElementById("databaseSolutionsCount") as HTMLSpanElement | null
+    private readonly databaseSnapshotsCount = document.getElementById("databaseSnapshotsCount") as HTMLSpanElement | null
+
+    private readonly databaseExportItem = document.getElementById("databaseExport") as HTMLDivElement | null
     /** Database menu (for auto-refresh on open) */
-    private databaseMenu = document.getElementById("databaseMenu") as HTMLDivElement | null
+    private readonly databaseMenu = document.getElementById("databaseMenu") as HTMLDivElement | null
 
-    /**
-     * Letslogic progress modal (shows that something is happening during submissions
-     * and displays the Letslogic responses and per-puzzle progress).
-     *
-     * The corresponding HTML elements are expected in index.html:
-     *  - #letslogicProgressModal
-     *  - #letslogicProgressTitle
-     *  - #letslogicProgressStatus
-     *  - #letslogicProgressLog
-     *  - #letslogicProgressCloseButton
-     */
-    private letslogicProgressModal       = document.getElementById("letslogicProgressModal")       as HTMLDivElement | null
-    private letslogicProgressTitle       = document.getElementById("letslogicProgressTitle")       as HTMLDivElement | null
-    private letslogicProgressStatus      = document.getElementById("letslogicProgressStatus")      as HTMLDivElement | null
-    private letslogicProgressLog         = document.getElementById("letslogicProgressLog")         as HTMLPreElement | null
-    private letslogicProgressCloseButton = document.getElementById("letslogicProgressCloseButton") as HTMLButtonElement | null
+    // ---------------------------------------------------------------------
+    // Letslogic progress modal
+    // ---------------------------------------------------------------------
 
-    /** Status bar */
-    private statusTextLabel = document.getElementById("statusTextLabel") as HTMLLabelElement
-    private statusText      = document.getElementById("statusText")      as HTMLSpanElement
+    private readonly letslogicProgressModal       = document.getElementById("letslogicProgressModal")       as HTMLDivElement | null
+    private readonly letslogicProgressTitle       = document.getElementById("letslogicProgressTitle")       as HTMLDivElement | null
+    private readonly letslogicProgressStatus      = document.getElementById("letslogicProgressStatus")      as HTMLDivElement | null
+    private readonly letslogicProgressLog         = document.getElementById("letslogicProgressLog")         as HTMLPreElement | null
+    private readonly letslogicProgressCloseButton = document.getElementById("letslogicProgressCloseButton") as HTMLButtonElement | null
 
-    /** Collection and puzzle selectors */
-    private collectionSelector = document.getElementById("collectionSelector") as HTMLSelectElement
-    private puzzleSelector     = document.getElementById("puzzleSelector")     as HTMLSelectElement
-    private puzzleCollection   = new Collection("", "", []) // currently active puzzle collection
+    // ---------------------------------------------------------------------
+    // Status bar
+    // ---------------------------------------------------------------------
 
-    // Imported collections keyed by display name (usually file name without extension).
-    private importedCollections = new Map<string, Collection>()
+    private readonly statusTextLabel = document.getElementById("statusTextLabel") as HTMLLabelElement
+    private readonly statusText      = document.getElementById("statusText")      as HTMLSpanElement
 
-    /** Solutions/Snapshots list + sidebar UI */
-    private snapshotList             = document.getElementById("snapshotList")             as HTMLDivElement
-    private importLURDStringButton   = document.getElementById("importLURDString")         as HTMLButtonElement
-    private saveSnapshotButton       = document.getElementById("saveSnapshotButton")       as HTMLButtonElement
-    private deleteSnapshotButton     = document.getElementById("deleteSnapshotButton")     as HTMLButtonElement
-    private snapshotSidebar          = document.getElementById("snapshotSidebar")          as HTMLDivElement
-    private showSnapshotListCheckbox = document.getElementById("showSnapshotListCheckbox") as HTMLInputElement
-    private filterSolutionsButton    = document.getElementById("filterSolutionsButton")    as HTMLButtonElement
-    private filterSnapshotsButton    = document.getElementById("filterSnapshotsButton")    as HTMLButtonElement
+    // ---------------------------------------------------------------------
+    // Collection and puzzle selectors
+    // ---------------------------------------------------------------------
 
-    private snapshotContextMenu = document.getElementById("snapshotContextMenu") as HTMLDivElement | null
+    private readonly collectionSelector = document.getElementById("collectionSelector") as HTMLSelectElement
+    private readonly puzzleSelector     = document.getElementById("puzzleSelector")     as HTMLSelectElement
 
-    toolbarButtons = document.getElementById("toolbarButtons") as HTMLDivElement // main container for toolbar and board
+    /** Currently active puzzle collection. */
+    private puzzleCollection = new Collection("", "", [])
 
+    /** Imported collections keyed by display name (usually file name without extension). */
+    private readonly importedCollections = new Map<string, Collection>()
+
+    // ---------------------------------------------------------------------
+    // Solutions/Snapshots list + sidebar UI
+    // ---------------------------------------------------------------------
+
+    private readonly snapshotList             = document.getElementById("snapshotList")             as HTMLDivElement
+    private readonly importLURDStringButton   = document.getElementById("importLURDString")         as HTMLButtonElement
+    private readonly saveSnapshotButton       = document.getElementById("saveSnapshotButton")       as HTMLButtonElement
+    private readonly deleteSnapshotButton     = document.getElementById("deleteSnapshotButton")     as HTMLButtonElement
+    private readonly snapshotSidebar          = document.getElementById("snapshotSidebar")          as HTMLDivElement
+    private readonly showSnapshotListCheckbox = document.getElementById("showSnapshotListCheckbox") as HTMLInputElement
+    private readonly filterSolutionsButton    = document.getElementById("filterSolutionsButton")    as HTMLButtonElement
+    private readonly filterSnapshotsButton    = document.getElementById("filterSnapshotsButton")    as HTMLButtonElement
+    private readonly snapshotContextMenu      = document.getElementById("snapshotContextMenu")      as HTMLDivElement | null
+
+    private snapshotSidebarInitialized = false
+
+    // ---------------------------------------------------------------------
+    // Toolbar container / Layout
+    // ---------------------------------------------------------------------
+
+    readonly toolbarButtons = document.getElementById("toolbarButtons") as HTMLDivElement // main container for toolbar and board
+
+    // ---------------------------------------------------------------------
     // Canvas / Rendering
-    private canvas: HTMLCanvasElement = document.getElementById("canvas") as HTMLCanvasElement
-    private board = Board.getDummyBoard()
+    // ---------------------------------------------------------------------
+
+    private readonly canvas: HTMLCanvasElement = document.getElementById("canvas") as HTMLCanvasElement
+    private board: Board = Board.getDummyBoard()
     private skin: CommonSkinFormatBase = new NightShift3Skin()
-    private boardRenderer: BoardRenderer
+    private readonly boardRenderer: BoardRenderer
 
     // Snapshot-/Solution-Sidebar view
-    private snapshotSidebarView: SnapshotSidebarView
+    private readonly snapshotSidebarView: SnapshotSidebarView
 
-    // Mouse
-    clickedPosition: number = NONE      // board position that was clicked
-    clickedXCoordinate: number = -1     // x-coordinate of mouse event
-    clickedYCoordinate: number = -1     // y-coordinate of mouse event
+    // Board rulers view (top/left labels + highlight)
+    private readonly boardRulerView: BoardRulerView
 
-    static isModalDialogShown = false   // used to temporarily suppress key handling
+    // ---------------------------------------------------------------------
+    // Mouse state
+    // ---------------------------------------------------------------------
+
+    clickedPosition: number = NONE
+    clickedXCoordinate = -1
+    clickedYCoordinate = -1
+
+    static isModalDialogShown = false   // used by keyboard controller to temporarily suppress key handling
 
     constructor(private readonly app: SokobanApp) {
 
         this.boardRenderer = new BoardRenderer(this.canvas, this.board, this.skin)
 
+        this.boardRulerView = new BoardRulerView(
+            this.boardRulerTop,
+            this.boardRulerLeft,
+            () => this.board,          // always returns current board
+            this.boardRenderer
+        )
+
         const sidebarCallbacks: SnapshotSidebarCallbacks = {
-            onSetSnapshot:   (snapshot: Snapshot) => this.app.setSnapshot(snapshot),
-            onCopySnapshot:  (snapshot: Snapshot) => this.app.copyMovesToClipboard(snapshot.lurd),
-            onDeleteSnapshot:(snapshot: Snapshot) => this.app.deleteSnapshot(snapshot),
+            onSetSnapshot:    (snapshot: Snapshot) => this.app.setSnapshot(snapshot),
+            onCopySnapshot:   (snapshot: Snapshot) => this.app.copyMovesToClipboard(snapshot.lurd),
+            onDeleteSnapshot: (snapshot: Snapshot) => this.app.deleteSnapshot(snapshot),
         }
 
         this.snapshotSidebarView = new SnapshotSidebarView(
@@ -202,16 +255,88 @@ export class GUI {
             sidebarCallbacks
         )
 
+        // Keyboard handling is delegated to KeyboardController via UiActions.
+        new KeyboardController(
+            () => GUI.isModalDialogShown,
+            (uiAction: UiAction) => this.handleUiAction(uiAction)
+        )
+
         this.addListeners()
 
-        document.body.style.overflow = "hidden" // avoid window scrolling when mouse wheel is used
+        // Avoid window scrolling when mouse wheel is used over the app
+        document.body.style.overflow = "hidden"
 
         this.boardRenderer.adjustCanvasSize()
         this.boardRenderer.adjustNewGraphicSize()
     }
 
+    // ---------------------------------------------------------------------
+    // UiAction dispatch (from KeyboardController)
+    // ---------------------------------------------------------------------
+
+    /** Maps keyboard-level UiActions to concrete GUI / App behaviour. */
+    private handleUiAction(action: UiAction): void {
+        switch (action) {
+            case UiAction.FocusCollectionSelector:
+                this.focusCollectionSelector()
+                return
+
+            case UiAction.FocusPuzzleSelector:
+                this.focusPuzzleSelector()
+                return
+
+            case UiAction.ToggleSnapshotList:
+                this.doAction(Action.toggleSnapshotList)
+                return
+
+            case UiAction.NextPuzzle:
+                this.doAction(Action.nextPuzzle)
+                return
+
+            case UiAction.PreviousPuzzle:
+                this.doAction(Action.previousPuzzle)
+                return
+
+            case UiAction.MoveLeft:
+                this.app.doAction(Action.moveLeft)
+                return
+
+            case UiAction.MoveRight:
+                this.app.doAction(Action.moveRight)
+                return
+
+            case UiAction.MoveUp:
+                this.app.doAction(Action.moveUp)
+                return
+
+            case UiAction.MoveDown:
+                this.app.doAction(Action.moveDown)
+                return
+
+            case UiAction.Undo:
+                this.app.doAction(Action.undo)
+                return
+
+            case UiAction.Redo:
+                this.app.doAction(Action.redo)
+                return
+
+            case UiAction.UndoAll:
+                this.app.doAction(Action.undoAll)
+                return
+
+            case UiAction.RedoAll:
+                this.app.doAction(Action.redoAll)
+                return
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Layout helpers
+    // ---------------------------------------------------------------------
+
     /** Recalculates canvas and graphic size after sidebar visibility changed. */
-    private recalcLayoutAfterSidebarChange = () => {
+    private readonly recalcLayoutAfterSidebarChange = (): void => {
         this.boardRenderer.adjustCanvasSize()
         this.boardRenderer.adjustNewGraphicSize()
         this.updateCanvas()
@@ -225,50 +350,37 @@ export class GUI {
 
         const boardWidthPx = this.boardRenderer.getBoardPixelWidth()
 
-        // Only apply if we have a meaningful width
         if (boardWidthPx > 0) {
             this.toolbarButtons.style.width = `${boardWidthPx}px`
         }
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Settings / Initial GUI state
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /** Sets all GUI elements according to the current settings. */
     async setCurrentSettings(): Promise<void> {
 
         // Skin
-        this.skinItems.forEach(item => {
-            item.classList.remove("selected", "active")
-            if (item.getAttribute("data-skinName") === Settings.skinName) {
-                item.classList.add("active", "selected")
-            }
-        })
+        this.updateMenuSelection(this.skinItems, "data-skinName", Settings.skinName)
 
         // Skin graphic size
-        this.graphicSizeSelectorItems.forEach(item => {
-            item.classList.remove("selected", "active")
-            if (item.getAttribute("data-skinGraphicSize") === Settings.graphicSize) {
-                item.classList.add("active", "selected")
-            }
-        })
+        this.updateMenuSelection(this.graphicSizeSelectorItems, "data-skinGraphicSize", Settings.graphicSize)
 
         // Move animation delay
-        this.moveAnimationDelayItems.forEach(item => {
-            item.classList.remove("selected", "active")
-            if (item.getAttribute("data-moveAnimationDelay") === Settings.moveAnimationDelayMs.toString()) {
-                item.classList.add("active", "selected")
-            }
-        })
+        this.updateMenuSelection(
+            this.moveAnimationDelayItems,
+            "data-moveAnimationDelay",
+            Settings.moveAnimationDelayMs.toString()
+        )
 
         // Selected object animation delay
-        this.selectedObjectAnimationDelayItems.forEach(item => {
-            item.classList.remove("selected", "active")
-            if (item.getAttribute("data-selectedObjectAnimationDelay") === Settings.selectedObjectAnimationsSpeedPercent.toString()) {
-                item.classList.add("active", "selected")
-            }
-        })
+        this.updateMenuSelection(
+            this.selectedObjectAnimationDelayItems,
+            "data-selectedObjectAnimationDelay",
+            Settings.selectedObjectAnimationsSpeedPercent.toString()
+        )
 
         this.showAnimationsCheckbox.checked = Settings.showAnimationFlag
         this.hideWallsCheckbox.checked      = Settings.hideWallsFlag
@@ -297,6 +409,22 @@ export class GUI {
         this.updateCanvas()
     }
 
+    /**
+     * Helper to update "selected/active" CSS classes for menu items that use data-* attributes.
+     */
+    private updateMenuSelection(
+        items: NodeListOf<HTMLElement>,
+        dataAttribute: string,
+        selectedValue: string
+    ): void {
+        items.forEach(item => {
+            item.classList.remove("selected", "active")
+            if (item.getAttribute(dataAttribute) === selectedValue) {
+                item.classList.add("active", "selected")
+            }
+        })
+    }
+
     async setSkin(skinName: SKIN_NAME): Promise<void> {
         this.skin = await SkinLoader.loadSkinByName(skinName)
         Settings.skinName = skinName
@@ -317,109 +445,57 @@ export class GUI {
         this.updateCanvas()
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Canvas / Mouse handling
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private canvasMouseDown(event: MouseEvent): void {
-        this.clickedXCoordinate = event.x
-        this.clickedYCoordinate = event.y
+        const { clientX, clientY } = event
 
-        this.clickedPosition = this.convertScreenCoordinatesToBoardPosition(event.x, event.y)
+        this.clickedXCoordinate = clientX
+        this.clickedYCoordinate = clientY
+
+        this.clickedPosition = this.convertScreenCoordinatesToBoardPosition(clientX, clientY)
         if (this.clickedPosition !== NONE) {
             this.doAction(Action.cellClicked)
         }
     }
 
     private canvasMouseUp(event: MouseEvent): void {
+        const { clientX, clientY } = event
+
         // Only treat mouse up as a drag end if mouse moved more than a few pixels
         if (
-            Math.abs(event.x - this.clickedXCoordinate) < 5 &&
-            Math.abs(event.y - this.clickedYCoordinate) < 5
+            Math.abs(clientX - this.clickedXCoordinate) < 5 &&
+            Math.abs(clientY - this.clickedYCoordinate) < 5
         ) {
             return
         }
 
-        this.clickedPosition = this.convertScreenCoordinatesToBoardPosition(event.x, event.y)
+        this.clickedPosition = this.convertScreenCoordinatesToBoardPosition(clientX, clientY)
         if (this.clickedPosition !== NONE) {
             this.doAction(Action.cellClicked)
         }
     }
 
-    /** Mouse is moved over the canvas – highlight corresponding ruler cells. */
+    /** Mouse is moved over the canvas – delegate highlight to BoardRulerView. */
     private canvasMouseMove(event: MouseEvent): void {
         const boardPos = this.boardRenderer.screenToBoard(event.clientX, event.clientY)
-        if (boardPos == null) {
-            this.clearRulerHighlight()
-            return
-        }
-
-        const col = boardPos % this.board.width
-        const row = Math.floor(boardPos / this.board.width)
-
-        this.highlightRulerForCell(col, row)
-    }
-
-    /** Highlight one column letter and one row number in the rulers. */
-    private highlightRulerForCell(col: number, row: number): void {
-        // Remove previous highlight
-        if (this.highlightedRulerCol) {
-            this.highlightedRulerCol.classList.remove("board-ruler-highlight")
-            this.highlightedRulerCol = null
-        }
-        if (this.highlightedRulerRow) {
-            this.highlightedRulerRow.classList.remove("board-ruler-highlight")
-            this.highlightedRulerRow = null
-        }
-
-        // If rulers are hidden, nothing to highlight
-        if (!Settings.showRulerFlag) {
-            return
-        }
-
-        // Find column cell with matching data-col
-        const colEl = this.boardRulerTop.querySelector<HTMLElement>(
-            `.board-ruler-cell[data-col="${col}"]`
-        )
-        if (colEl) {
-            colEl.classList.add("board-ruler-highlight")
-            this.highlightedRulerCol = colEl
-        }
-
-        // Find row cell with matching data-row
-        const rowEl = this.boardRulerLeft.querySelector<HTMLElement>(
-            `.board-ruler-cell[data-row="${row}"]`
-        )
-        if (rowEl) {
-            rowEl.classList.add("board-ruler-highlight")
-            this.highlightedRulerRow = rowEl
-        }
-    }
-
-    /** Remove any current ruler highlight (called on mouseleave / outside board). */
-    private clearRulerHighlight(): void {
-        if (this.highlightedRulerCol) {
-            this.highlightedRulerCol.classList.remove("board-ruler-highlight")
-            this.highlightedRulerCol = null
-        }
-        if (this.highlightedRulerRow) {
-            this.highlightedRulerRow.classList.remove("board-ruler-highlight")
-            this.highlightedRulerRow = null
-        }
+        this.boardRulerView.highlightForBoardPosition(boardPos)
     }
 
     /**
-     * Returns the board position for the given screen (x, y) coordinates
+     * Returns the board position for the given screen (clientX, clientY) coordinates
      * or NONE if they do not map to a valid board cell.
      */
-    private convertScreenCoordinatesToBoardPosition(x: number, y: number): number {
-        const boardPos = this.boardRenderer.screenToBoard(x, y)
+    private convertScreenCoordinatesToBoardPosition(clientX: number, clientY: number): number {
+        const boardPos = this.boardRenderer.screenToBoard(clientX, clientY)
         return boardPos != null ? boardPos : NONE
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Canvas drawing (delegated to BoardRenderer)
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     updateCanvas(): void {
         const selectionState: SelectionState = {
@@ -434,7 +510,7 @@ export class GUI {
         this.syncToolbarWidthToBoard()
 
         // Update rulers (visibility + labels)
-        this.updateRulerLayout()
+        this.boardRulerView.updateLayout()
     }
 
     /**
@@ -466,15 +542,7 @@ export class GUI {
             return Directions.getDirectionFromLURDChar(nextMoveLURDChar)
         }
 
-        // As a fallback, try to face any non-wall neighbor
-        // for (const direction of Directions.DIRECTIONS) {
-        //     const neighborPosition = this.board.getNeighborPosition(this.board.playerPosition, direction)
-        //     if (!this.board.isWall(neighborPosition)) {
-        //         return direction
-        //     }
-        // }
-
-        // Prefer downward facing since this way the player looks at the user :-)
+        // Prefer downward facing since this way the player looks at the user :-).
         return DOWN
     }
 
@@ -482,10 +550,8 @@ export class GUI {
     private focusCollectionSelector(): void {
         if (!this.collectionSelector) return
 
-        // Native focus
         this.collectionSelector.focus()
 
-        // Try to open Fomantic dropdown, if initialized
         const $dropdown = ($("#collectionSelector") as any)
         if (typeof $dropdown.dropdown === "function") {
             try {
@@ -494,7 +560,6 @@ export class GUI {
                 // Ignore if Fomantic is not initialized or throws
             }
         } else {
-            // Fallback: try to simulate a click on the native select
             this.collectionSelector.click()
         }
     }
@@ -503,10 +568,8 @@ export class GUI {
     private focusPuzzleSelector(): void {
         if (!this.puzzleSelector) return
 
-        // Native focus
         this.puzzleSelector.focus()
 
-        // Try to open Fomantic dropdown, if initialized
         const $dropdown = ($("#puzzleSelector") as any)
         if (typeof $dropdown.dropdown === "function") {
             try {
@@ -515,14 +578,13 @@ export class GUI {
                 // Ignore if Fomantic is not initialized or throws
             }
         } else {
-            // Fallback: try to simulate a click on the native select
             this.puzzleSelector.click()
         }
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Status / puzzle solved animation
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     setStatusText(text: string): void  {
         this.statusTextLabel.classList.remove("hidden")
@@ -547,13 +609,12 @@ export class GUI {
         }, 1500)
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Event listener setup
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private addListeners(): void {
-
-        this.addKeyboardListeners()
+        // Keyboard is fully handled by KeyboardController via UiActions.
         this.addCanvasListeners()
         this.addSkinAndAnimationListeners()
         this.addFileImportListeners()
@@ -569,129 +630,13 @@ export class GUI {
         })
     }
 
-    private addKeyboardListeners(): void {
-
-        document.addEventListener("keydown", (event) => {
-
-            if (event.shiftKey || event.ctrlKey || GUI.isModalDialogShown) {
-                return
-            }
-            // Ignore keys when typing / selecting in form controls
-            const target = event.target as HTMLElement | null
-            if (target) {
-                const tagName = target.tagName
-                if (
-                    tagName === "INPUT" ||
-                    tagName === "TEXTAREA" ||
-                    tagName === "SELECT" ||
-                    target.isContentEditable
-                ) {
-                    // Do not handle Sokoban shortcuts when user is in a form control
-                    return
-                }
-            }
-
-            const key = event.key
-
-            // Keyboard shortcuts for selectors
-            if (key === "c" || key === "C") {
-                event.preventDefault()
-                this.focusCollectionSelector()
-                return
-            }
-
-            if (key === "p" || key === "P") {
-                event.preventDefault()
-                this.focusPuzzleSelector()
-                return
-            }
-            // ---------------------------------------------
-
-            switch (key) {
-
-                case "ArrowLeft":
-                case "a":
-                case "j":
-                    this.doAction(Action.moveLeft)
-                    event.preventDefault()
-                    break
-
-                case "ArrowUp":
-                case "w":
-                case "i":
-                    this.doAction(Action.moveUp)
-                    event.preventDefault()
-                    break
-
-                case "ArrowRight":
-                case "d":
-                    this.doAction(Action.moveRight)
-                    event.preventDefault()
-                    break
-
-                case "ArrowDown":
-                case "s":
-                case "k":
-                    this.doAction(Action.moveDown)
-                    event.preventDefault()
-                    break
-
-                case "y":
-                case "r":
-                    this.doAction(Action.redo)
-                    event.preventDefault()
-                    break
-
-                case "z":
-                    this.doAction(Action.undo)
-                    event.preventDefault()
-                    break
-
-                case "v":
-                    this.doAction(Action.toggleSnapshotList)
-                    event.preventDefault()
-                    break
-
-                case "Home":
-                    this.doAction(Action.undoAll)
-                    event.preventDefault()
-                    break
-
-                case "End":
-                    this.doAction(Action.redoAll)
-                    event.preventDefault()
-                    break
-
-                case "Delete":
-                    this.doAction(Action.undo)
-                    event.preventDefault()
-                    break
-
-                case "Insert":
-                    this.doAction(Action.redo)
-                    event.preventDefault()
-                    break
-
-                case "PageDown":
-                    this.doAction(Action.nextPuzzle)
-                    event.preventDefault()
-                    break
-
-                case "PageUp":
-                    this.doAction(Action.previousPuzzle)
-                    event.preventDefault()
-                    break
-            }
-        })
-    }
-
     private addCanvasListeners(): void {
         this.canvas.addEventListener("mousedown", (event) => this.canvasMouseDown(event))
         this.canvas.addEventListener("mouseup",   (event) => this.canvasMouseUp(event))
 
-        // NEW: highlight ruler while mouse moves over the board
+        // Highlight ruler while mouse moves over the board
         this.canvas.addEventListener("mousemove", (event) => this.canvasMouseMove(event))
-        this.canvas.addEventListener("mouseleave", () => this.clearRulerHighlight())
+        this.canvas.addEventListener("mouseleave", () => this.boardRulerView.clearHighlight())
 
         // Only scroll when mouse is above canvas
         this.canvas.addEventListener("wheel", (event) => this.mouseScroll(event), {
@@ -704,12 +649,15 @@ export class GUI {
         // Skin change
         this.skinItems.forEach(skinItem => {
             skinItem.addEventListener("click", () => {
-                this.skinItems.forEach(item => item.classList.remove("selected", "active"))
-                skinItem.classList.add("active", "selected")
+                this.updateMenuSelection(
+                    this.skinItems,
+                    "data-skinName",
+                    skinItem.getAttribute("data-skinName") ?? ""
+                )
 
                 const selectedSkinName = skinItem.getAttribute("data-skinName") as SKIN_NAME | null
                 if (selectedSkinName != null) {
-                    this.setSkin(selectedSkinName).then(() => this.updateCanvas())
+                    this.setSkin(selectedSkinName)
                 }
             })
         })
@@ -717,8 +665,11 @@ export class GUI {
         // Graphic size change
         this.graphicSizeSelectorItems.forEach(graphicSizeItem => {
             graphicSizeItem.addEventListener("click", () => {
-                this.graphicSizeSelectorItems.forEach(item => item.classList.remove("selected", "active"))
-                graphicSizeItem.classList.add("active", "selected")
+                this.updateMenuSelection(
+                    this.graphicSizeSelectorItems,
+                    "data-skinGraphicSize",
+                    graphicSizeItem.getAttribute("data-skinGraphicSize") ?? ""
+                )
 
                 const selectedGraphicSize = graphicSizeItem.getAttribute("data-skinGraphicSize")
                 if (selectedGraphicSize != null) {
@@ -730,8 +681,11 @@ export class GUI {
         // Move animation delay
         this.moveAnimationDelayItems.forEach(moveDelayItem => {
             moveDelayItem.addEventListener("click", () => {
-                this.moveAnimationDelayItems.forEach(item => item.classList.remove("selected", "active"))
-                moveDelayItem.classList.add("active", "selected")
+                this.updateMenuSelection(
+                    this.moveAnimationDelayItems,
+                    "data-moveAnimationDelay",
+                    moveDelayItem.getAttribute("data-moveAnimationDelay") ?? ""
+                )
 
                 const moveAnimationDelay = moveDelayItem.getAttribute("data-moveAnimationDelay")
                 if (moveAnimationDelay != null) {
@@ -743,8 +697,11 @@ export class GUI {
         // Selected object animation delay
         this.selectedObjectAnimationDelayItems.forEach(delayItem => {
             delayItem.addEventListener("click", () => {
-                this.selectedObjectAnimationDelayItems.forEach(item => item.classList.remove("selected", "active"))
-                delayItem.classList.add("active", "selected")
+                this.updateMenuSelection(
+                    this.selectedObjectAnimationDelayItems,
+                    "data-selectedObjectAnimationDelay",
+                    delayItem.getAttribute("data-selectedObjectAnimationDelay") ?? ""
+                )
 
                 const animationDelay = delayItem.getAttribute("data-selectedObjectAnimationDelay")
                 if (animationDelay != null) {
@@ -760,11 +717,11 @@ export class GUI {
         }
 
         this.importPuzzleFromFile.addEventListener("click", () => {
-            this.puzzleFileInput.click()
+            this.puzzleFileInput!.click()
         })
 
         this.puzzleFileInput.addEventListener("change", async () => {
-            const file = this.puzzleFileInput.files && this.puzzleFileInput.files[0]
+            const file = this.puzzleFileInput!.files && this.puzzleFileInput!.files[0]
             if (!file) {
                 return
             }
@@ -803,7 +760,7 @@ export class GUI {
                 console.error("Failed to read or parse puzzle file", error)
                 alert("Could not read the selected file or parse it as a Sokoban puzzle collection.")
             } finally {
-                this.puzzleFileInput.value = ""
+                this.puzzleFileInput!.value = ""
             }
         })
     }
@@ -825,8 +782,8 @@ export class GUI {
         bindClick(this.redoButton,    Action.redo)
         bindClick(this.redoAllButton, Action.redoAll)
 
-        bindChange(this.hideWallsCheckbox, Action.hideWalls)
-        bindChange(this.soundEnabledCheckbox, Action.toggleSoundEnabled)
+        bindChange(this.hideWallsCheckbox,      Action.hideWalls)
+        bindChange(this.soundEnabledCheckbox,   Action.toggleSoundEnabled)
 
         this.backgroundColor.addEventListener("input", () => this.doAction(Action.setBackgroundColor))
 
@@ -852,7 +809,7 @@ export class GUI {
         bindClick(this.letslogicSubmitCollectionItem, Action.submitLetslogicCollectionSolutions)
 
         // Database menu
-        bindClick(this.databaseExportItem,    Action.exportDatabase)
+        bindClick(this.databaseExportItem, Action.exportDatabase)
 
         // Snapshot-UI specific controls that trigger Actions
         bindClick(this.importLURDStringButton,    Action.importLURDString)
@@ -948,9 +905,9 @@ export class GUI {
         ($("#letslogicApiKeyModal") as any).modal("hide")
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Graphic size / Canvas size
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /** Sets a new graphic size for the board display. */
     private setNewGraphicSize(selectedGraphicSize: string): void {
@@ -967,12 +924,13 @@ export class GUI {
             this.doAction(Action.undo)
         }
 
+        event.preventDefault()
         event.stopPropagation()
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Dialogs / Sidebar
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /** Shows the "How to play" modal dialog. */
     private showHowToPlay(): void {
@@ -986,13 +944,16 @@ export class GUI {
     private setSnapshotListVisible(visible: boolean): void {
         const sidebar = ($("#snapshotSidebar") as any)
 
-        // Initialize sidebar behavior
-        sidebar.sidebar({
-            dimPage: false,
-            closable: false,
-            onVisible: this.recalcLayoutAfterSidebarChange,
-            onHidden: this.recalcLayoutAfterSidebarChange
-        })
+        // Initialize sidebar behavior once
+        if (!this.snapshotSidebarInitialized) {
+            sidebar.sidebar({
+                dimPage: false,
+                closable: false,
+                onVisible: this.recalcLayoutAfterSidebarChange,
+                onHidden: this.recalcLayoutAfterSidebarChange
+            })
+            this.snapshotSidebarInitialized = true
+        }
 
         if (visible) {
             sidebar.sidebar("show")
@@ -1014,124 +975,9 @@ export class GUI {
         this.updateCanvas()
     }
 
-    // ------------------------------------------------------------------------
-    // Ruler helpers
-    // ------------------------------------------------------------------------
-
-    /**
-     * Shows or hides the rulers around the board according to Settings.showRulerFlag
-     * and rebuilds the labels when visible.
-     */
-    private updateRulerLayout(): void {
-        if (!this.boardRulerTop || !this.boardRulerLeft) {
-            return
-        }
-
-        const visible = Settings.showRulerFlag
-
-        if (!visible) {
-            this.boardRulerTop.style.display  = "none"
-            this.boardRulerLeft.style.display = "none"
-            return
-        }
-
-        this.boardRulerTop.style.display  = ""
-        this.boardRulerLeft.style.display = ""
-
-        this.renderRulers()
-    }
-
-    /**
-     * Rebuilds the column (A, B, C, …) and row (1, 2, 3, …) labels so that they
-     * match the current board size and cell pixel size.
-     */
-    private renderRulers(): void {
-        if (!this.board || !this.boardRulerTop || !this.boardRulerLeft) {
-            return
-        }
-
-        const cols = this.board.width
-        const rows = this.board.height
-
-        if (!cols || !rows || cols <= 0 || rows <= 0) {
-            this.boardRulerTop.innerHTML  = ""
-            this.boardRulerLeft.innerHTML = ""
-            return
-        }
-
-        const boardWidthPx  = this.boardRenderer.getBoardPixelWidth()
-        const boardHeightPx = this.boardRenderer.getBoardPixelHeight()
-
-        const cellWidth  = boardWidthPx  / cols
-        const cellHeight = boardHeightPx / rows
-
-        // --- Top ruler: A, B, C, ... ---
-
-        this.boardRulerTop.innerHTML = ""
-
-        for (let x = 0; x < cols; x++) {
-            const label = this.getColumnLabel(x)   // A, B, ..., Z, AA, AB, ...
-            const cellDiv = document.createElement("div")
-            cellDiv.classList.add("board-ruler-cell")
-            cellDiv.dataset.col = String(x)             // <-- NEW: column index for highlighting
-            cellDiv.style.width = `${cellWidth}px`
-            cellDiv.textContent = label
-            this.boardRulerTop.appendChild(cellDiv)
-        }
-
-        // --- Left ruler: 1, 2, 3, ... ---
-
-        this.boardRulerLeft.innerHTML = ""
-
-        for (let y = 0; y < rows; y++) {
-            const cellDiv = document.createElement("div")
-            cellDiv.classList.add("board-ruler-cell")
-            cellDiv.dataset.row = String(y)             // <-- NEW: row index for highlighting
-            cellDiv.style.height = `${cellHeight}px`
-            cellDiv.textContent = String(y + 1)
-            this.boardRulerLeft.appendChild(cellDiv)
-        }
-    }
-
-    /**
-     * Converts a zero-based column index to a spreadsheet-like label: 0->A, 1->B, …, 25->Z, 26->AA, etc.
-     */
-    private getColumnLabel(index: number): string {
-        let n = index
-        let label = ""
-
-        while (n >= 0) {
-            const remainder = n % 26
-            label = String.fromCharCode("A".charCodeAt(0) + remainder) + label
-            n = Math.floor(n / 26) - 1
-        }
-
-        return label
-    }
-
-    /** Updates the background color and clears any background image. */
-    private static setNewBackgroundColor(backgroundColor: string): void {
-        Settings.backgroundColor = backgroundColor
-        Settings.backgroundImageName = ""
-        document.body.setAttribute(
-            "style",
-            `background-color: ${backgroundColor} !important; overflow: hidden;`
-        )
-    }
-
-    /** Sets a new background image. */
-    private static setBackgroundImage(imageFileName: string): void {
-        Settings.backgroundImageName = imageFileName
-        document.body.setAttribute(
-            "style",
-            `background-image: url(/resources/backgroundImages/${imageFileName});` +
-            "background-size: 100% 100%; overflow: hidden;"
-        )
-    }
-
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Collections / Puzzles
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /**
      * Called when the user selects a different collection in the dropdown.
@@ -1157,7 +1003,8 @@ export class GUI {
         // 3) Normal collection from resources
         Settings.lastPlayedCollectionName = puzzleCollectionName
 
-        PuzzleCollectionIO.loadPuzzleCollection(`resources/puzzles/${puzzleCollectionName}`)
+        PuzzleCollectionIO
+            .loadPuzzleCollection(`resources/puzzles/${puzzleCollectionName}`)
             .then(puzzleCollection => {
                 this.setCollectionForPlaying(puzzleCollection)
                 this.newPuzzleSelected()
@@ -1194,7 +1041,7 @@ export class GUI {
         for (const puzzle of collection.puzzles) {
             const puzzleItem = document.createElement("option")
             puzzleItem.value     = puzzle.puzzleNumber.toString()
-            puzzleItem.innerText = puzzle.puzzleNumber + " - " + puzzle.title
+            puzzleItem.innerText = `${puzzle.puzzleNumber} - ${puzzle.title}`
             this.puzzleSelector.appendChild(puzzleItem)
         }
     }
@@ -1202,7 +1049,8 @@ export class GUI {
     /** Sets the selected puzzle in the collection as the active puzzle. */
     private newPuzzleSelected(): void {
         const rawValue = this.puzzleSelector.value
-        const puzzleNumber = parseInt(rawValue.split(" - ").pop() ?? "1", 10)
+        // value is "n - title" so we parse the number before the dash
+        const puzzleNumber = parseInt(rawValue.split(" - ")[0] ?? "1", 10)
 
         if (Number.isNaN(puzzleNumber) || puzzleNumber <= 0) {
             console.error("Invalid puzzleNumber from puzzleSelector.value:", rawValue)
@@ -1257,9 +1105,9 @@ export class GUI {
         }
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Snapshots / Solutions sidebar (delegated to SnapshotSidebarView)
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /** Removes all snapshot/solution items from the sidebar list. */
     clearSnapshotList(): void {
@@ -1285,9 +1133,9 @@ export class GUI {
         )
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Letslogic progress integration
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /**
      * Creates a LetslogicProgressCallbacks implementation that updates the
@@ -1295,10 +1143,6 @@ export class GUI {
      *
      * SokobanApp can pass the returned callbacks object to LetslogicService so that
      * every submission (single puzzle or full collection) becomes visible to the user.
-     *
-     * Example usage in SokobanApp:
-     *   const progress = this.gui.createLetslogicProgressCallbacks("currentPuzzle")
-     *   await this.letslogicService.submitCurrentPuzzle(this.puzzle, progress)
      */
     public createLetslogicProgressCallbacks(
         scope: "currentPuzzle" | "collection"
@@ -1397,9 +1241,9 @@ export class GUI {
         }
     }
 
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Action dispatch
-    // ------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     /**
      * Handles an action triggered by the GUI.
@@ -1445,7 +1289,7 @@ export class GUI {
                 if (this.showRulerCheckbox) {
                     Settings.showRulerFlag = this.showRulerCheckbox.checked
                 }
-                this.updateRulerLayout()
+                this.boardRulerView.updateLayout()
                 break
 
             case Action.collectionSelected:
@@ -1506,5 +1350,29 @@ export class GUI {
         if (this.databaseSnapshotsCount) {
             this.databaseSnapshotsCount.textContent = String(snapshots)
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Static helpers for background styling
+    // ---------------------------------------------------------------------
+
+    /** Updates the background color and clears any background image. */
+    private static setNewBackgroundColor(backgroundColor: string): void {
+        Settings.backgroundColor = backgroundColor
+        Settings.backgroundImageName = ""
+        document.body.setAttribute(
+            "style",
+            `background-color: ${backgroundColor} !important; overflow: hidden;`
+        )
+    }
+
+    /** Sets a new background image. */
+    private static setBackgroundImage(imageFileName: string): void {
+        Settings.backgroundImageName = imageFileName
+        document.body.setAttribute(
+            "style",
+            `background-image: url(/resources/backgroundImages/${imageFileName});` +
+            "background-size: 100% 100%; overflow: hidden;"
+        )
     }
 }
