@@ -1,7 +1,6 @@
 import { DIRECTION, Directions, DOWN, LEFT, RIGHT, UP } from "../Sokoban/Directions"
 import { Board, NOT_REACHABLE } from "../board/Board"
 import { MoveHistory } from "./MoveHistory"
-import { Action, GUI } from "../gui/GUI"
 import { Sound } from "../sound/Sound"
 import { PlayerPathFinding } from "../services/pathFinding/PlayerPathFinding"
 import { BoxPathFinding } from "../services/pathFinding/BoxPathFinding"
@@ -17,6 +16,8 @@ import { Collection } from "../Sokoban/domainObjects/Collection"
 import { LetslogicService } from "../services/letslogic/LetsLogicService"
 import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
 import { LURD_CHARS } from "../Sokoban/PuzzleFormat"
+import {GUI} from "../gui/GUI";
+import {Action} from "../gui/Actions";
 
 export const NONE = -1
 

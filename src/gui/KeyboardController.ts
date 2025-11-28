@@ -12,7 +12,7 @@
 // Board, GUI internals etc. It only calls the provided callbacks.
 //
 
-import { UiAction } from "./UiActions"
+import { Action } from "./Actions"
 
 /**
  * KeyboardController
@@ -33,7 +33,7 @@ export class KeyboardController {
      */
     constructor(
         private readonly isModalOpen: () => boolean,
-        private readonly dispatchUiAction: (action: UiAction) => void
+        private readonly dispatchUiAction: (action: Action) => void
     ) {
         this.keydownHandler = (event: KeyboardEvent) => this.handleKeyDown(event)
         document.addEventListener("keydown", this.keydownHandler)
@@ -98,13 +98,13 @@ export class KeyboardController {
 
         if (key === "c" || key === "C") {
             event.preventDefault()
-            this.dispatchUiAction(UiAction.FocusCollectionSelector)
+            this.dispatchUiAction(Action.focusCollectionSelector)
             return
         }
 
         if (key === "p" || key === "P") {
             event.preventDefault()
-            this.dispatchUiAction(UiAction.FocusPuzzleSelector)
+            this.dispatchUiAction(Action.focusPuzzleSelector)
             return
         }
 
@@ -117,7 +117,7 @@ export class KeyboardController {
             case "ArrowLeft":
             case "a":
             case "j":
-                this.dispatchUiAction(UiAction.MoveLeft)
+                this.dispatchUiAction(Action.moveLeft)
                 event.preventDefault()
                 break
 
@@ -125,14 +125,14 @@ export class KeyboardController {
             case "ArrowUp":
             case "w":
             case "i":
-                this.dispatchUiAction(UiAction.MoveUp)
+                this.dispatchUiAction(Action.moveUp)
                 event.preventDefault()
                 break
 
             // Movement: right
             case "ArrowRight":
             case "d":
-                this.dispatchUiAction(UiAction.MoveRight)
+                this.dispatchUiAction(Action.moveRight)
                 event.preventDefault()
                 break
 
@@ -140,62 +140,62 @@ export class KeyboardController {
             case "ArrowDown":
             case "s":
             case "k":
-                this.dispatchUiAction(UiAction.MoveDown)
+                this.dispatchUiAction(Action.moveDown)
                 event.preventDefault()
                 break
 
             // Redo one move
             case "y":
             case "r":
-                this.dispatchUiAction(UiAction.Redo)
+                this.dispatchUiAction(Action.redo)
                 event.preventDefault()
                 break
 
             // Undo one move
             case "z":
-                this.dispatchUiAction(UiAction.Undo)
+                this.dispatchUiAction(Action.undo)
                 event.preventDefault()
                 break
 
             // Toggle snapshot list sidebar
             case "v":
-                this.dispatchUiAction(UiAction.ToggleSnapshotList)
+                this.dispatchUiAction(Action.toggleSnapshotList)
                 event.preventDefault()
                 break
 
             // Undo all moves (go to start)
             case "Home":
-                this.dispatchUiAction(UiAction.UndoAll)
+                this.dispatchUiAction(Action.undoAll)
                 event.preventDefault()
                 break
 
             // Redo all moves (go to end)
             case "End":
-                this.dispatchUiAction(UiAction.RedoAll)
+                this.dispatchUiAction(Action.redoAll)
                 event.preventDefault()
                 break
 
             // Duplicate mapping: delete → undo
             case "Delete":
-                this.dispatchUiAction(UiAction.Undo)
+                this.dispatchUiAction(Action.undo)
                 event.preventDefault()
                 break
 
             // Duplicate mapping: insert → redo
             case "Insert":
-                this.dispatchUiAction(UiAction.Redo)
+                this.dispatchUiAction(Action.redo)
                 event.preventDefault()
                 break
 
             // Next puzzle
             case "PageDown":
-                this.dispatchUiAction(UiAction.NextPuzzle)
+                this.dispatchUiAction(Action.nextPuzzle)
                 event.preventDefault()
                 break
 
             // Previous puzzle
             case "PageUp":
-                this.dispatchUiAction(UiAction.PreviousPuzzle)
+                this.dispatchUiAction(Action.previousPuzzle)
                 event.preventDefault()
                 break
         }

@@ -25,50 +25,7 @@ import { SnapshotSidebarCallbacks, SnapshotSidebarView } from "./SnapshotSidebar
 import { LetslogicProgressCallbacks } from "../services/letslogic/LetsLogicService"
 import { KeyboardController } from "./KeyboardController"
 import { BoardRulerView } from "./BoardRulerView"
-import { UiAction } from "./UiActions"
-
-export const enum Action {
-    puzzleSelected = "puzzleSelected",
-    collectionSelected = "collectionSelected",
-    toggleSnapshotList = "toggleSnapshotList",
-    howToPlay = "howToPlay",
-    undoAll = "undoAll",
-    undo = "undo",
-    redo = "redo",
-    redoAll = "redoAll",
-    moveLeft = "moveLeft",
-    moveRight = "moveRight",
-    moveUp = "moveUp",
-    moveDown = "moveDown",
-    hideWalls = "hideWalls",
-    toggleSoundEnabled = "toggleSoundEnabled",
-    setBackgroundColor = "setBackgroundColor",
-    setDefaultBackgroundColor = "setDefaultBackgroundColor",
-    setDropsBackgroundImage = "setDropsBackgroundImage",
-    showAnimationsCheckbox = "showAnimationsCheckbox",
-    copyMovesAsString = "copyMovesAsString",
-    pasteMovesFromClipboard = "pasteMovesFromClipboard",
-    importPuzzleFromClipboard = "importPuzzleFromClipboard",
-    copyPuzzleToClipboard = "copyPuzzleToClipboard",
-    importLURDString = "importLURDString",
-    saveSnapshot = "saveSnapshot",
-    toggleDeleteSnapshotMode = "toggleDeleteSnapshotMode",
-    toggleRuler = "toggleRuler",
-
-    // Puzzle navigation
-    nextPuzzle = "nextPuzzle",
-    previousPuzzle = "previousPuzzle",
-
-    // Letslogic specific actions
-    setLetslogicApiKey = "setLetslogicApiKey",
-    submitLetslogicCurrentPuzzleSolutions = "submitLetslogicCurrentPuzzleSolutions",
-    submitLetslogicCollectionSolutions   = "submitLetslogicCollectionSolutions",
-
-    // Database specific actions
-    exportDatabase = "exportDatabase",
-
-    cellClicked = "cellClicked",
-}
+import { Action } from "./Actions"
 
 export class GUI {
 
@@ -258,7 +215,7 @@ export class GUI {
         // Keyboard handling is delegated to KeyboardController via UiActions.
         new KeyboardController(
             () => GUI.isModalDialogShown,
-            (uiAction: UiAction) => this.handleUiAction(uiAction)
+            (uiAction: Action) => this.handleAction(uiAction)
         )
 
         this.addListeners()
@@ -271,61 +228,61 @@ export class GUI {
     }
 
     // ---------------------------------------------------------------------
-    // UiAction dispatch (from KeyboardController)
+    // Action dispatch (from KeyboardController)
     // ---------------------------------------------------------------------
 
     /** Maps keyboard-level UiActions to concrete GUI / App behaviour. */
-    private handleUiAction(action: UiAction): void {
+    private handleAction(action: Action): void {
         switch (action) {
-            case UiAction.FocusCollectionSelector:
+            case Action.focusCollectionSelector:
                 this.focusCollectionSelector()
                 return
 
-            case UiAction.FocusPuzzleSelector:
+            case Action.focusPuzzleSelector:
                 this.focusPuzzleSelector()
                 return
 
-            case UiAction.ToggleSnapshotList:
+            case Action.toggleSnapshotList:
                 this.doAction(Action.toggleSnapshotList)
                 return
 
-            case UiAction.NextPuzzle:
+            case Action.nextPuzzle:
                 this.doAction(Action.nextPuzzle)
                 return
 
-            case UiAction.PreviousPuzzle:
+            case Action.previousPuzzle:
                 this.doAction(Action.previousPuzzle)
                 return
 
-            case UiAction.MoveLeft:
+            case Action.moveLeft:
                 this.app.doAction(Action.moveLeft)
                 return
 
-            case UiAction.MoveRight:
+            case Action.moveRight:
                 this.app.doAction(Action.moveRight)
                 return
 
-            case UiAction.MoveUp:
+            case Action.moveUp:
                 this.app.doAction(Action.moveUp)
                 return
 
-            case UiAction.MoveDown:
+            case Action.moveDown:
                 this.app.doAction(Action.moveDown)
                 return
 
-            case UiAction.Undo:
+            case Action.undo:
                 this.app.doAction(Action.undo)
                 return
 
-            case UiAction.Redo:
+            case Action.redo:
                 this.app.doAction(Action.redo)
                 return
 
-            case UiAction.UndoAll:
+            case Action.undoAll:
                 this.app.doAction(Action.undoAll)
                 return
 
-            case UiAction.RedoAll:
+            case Action.redoAll:
                 this.app.doAction(Action.redoAll)
                 return
         }
