@@ -70,6 +70,11 @@ body {
     transform: translate(-50%, -50%);
 }
 
+/* Pusher from Fomantic should not overlap the background. */
+.pusher {
+    background: transparent !important;
+}
+
 /* ===================================================================== */
 /*  "Puzzle solved!" overlay                                             */
 /* ===================================================================== */

@@ -18,6 +18,7 @@ import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
 import { LURD_CHARS } from "../Sokoban/PuzzleFormat"
 import {GUI} from "../gui/GUI";
 import {Action} from "../gui/Actions";
+import {StoragePersistenceService} from "../services/storage/StoragePersistenceService";
 
 export const NONE = -1
 
@@ -78,12 +79,21 @@ export class SokobanApp {
         this.gui = new GUI(this)
     }
 
-    /** Initialize the app: storage, settings, GUI. */
+    /** Initializes the app: storage, settings, GUI. */
     async init(): Promise<void> {
+        // Initialize local storage backend (localForage, IndexedDB, etc.)
         DataStorage.init()
+
+        // Load user settings from storage
         await Settings.loadSettings()
+
+        // Apply settings to GUI and skins
         await this.gui.setCurrentSettings()
+
+        // Request persistent storage in the background (non-blocking)
+        void StoragePersistenceService.ensurePersistentStorage()
     }
+
 
     // ---------------------------------------------------------------------
     // Puzzle setup
