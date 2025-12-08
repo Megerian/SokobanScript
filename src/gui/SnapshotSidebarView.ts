@@ -12,14 +12,11 @@ export class SnapshotSidebarView {
 
     private showSolutions = true
     private showSnapshots = true
-    private isDeleteSnapshotMode = false
 
     private contextMenuSnapshot: Snapshot | null = null
 
     constructor(
         private readonly snapshotList: HTMLDivElement,
-        private readonly snapshotSidebar: HTMLDivElement,
-        private readonly deleteSnapshotButton: HTMLButtonElement,
         private readonly filterSolutionsButton: HTMLButtonElement,
         private readonly filterSnapshotsButton: HTMLButtonElement,
         private readonly contextMenu: HTMLDivElement | null,
@@ -67,21 +64,6 @@ export class SnapshotSidebarView {
         }
 
         this.applySnapshotFilters()
-    }
-
-    /** Toggles delete mode for snapshots/solutions. */
-    toggleDeleteMode(): void {
-        this.isDeleteSnapshotMode = !this.isDeleteSnapshotMode
-
-        if (this.isDeleteSnapshotMode) {
-            this.snapshotSidebar.classList.add("delete-mode")
-            this.deleteSnapshotButton.classList.add("red")
-            this.deleteSnapshotButton.innerHTML = '<i class="check icon"></i> Done deleting'
-        } else {
-            this.snapshotSidebar.classList.remove("delete-mode")
-            this.deleteSnapshotButton.classList.remove("red")
-            this.deleteSnapshotButton.innerHTML = '<i class="trash icon"></i> Delete snapshots'
-        }
     }
 
     /** Toggles visibility of solution items in the snapshot list. */
@@ -271,7 +253,6 @@ export class SnapshotSidebarView {
     private initFilterButtons(): void {
         this.filterSolutionsButton.addEventListener("click", () => this.toggleSolutionFilter())
         this.filterSnapshotsButton.addEventListener("click", () => this.toggleSnapshotFilter())
-        this.deleteSnapshotButton.addEventListener("click", () => this.toggleDeleteMode())
     }
 
     private initContextMenuGlobalListeners(): void {

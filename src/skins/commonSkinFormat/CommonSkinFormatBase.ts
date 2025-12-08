@@ -35,10 +35,19 @@ export abstract class CommonSkinFormatBase {
     protected abstract rightBorder: number
     abstract defaultAnimationDelayInMs: number
     protected abstract imageSize: number
-    protected abstract animationGraphicCount: number      // number of graphics available for showing animations
+
+    protected playerInViewDirectionSpritesY       = NONE // row in the skin graphic where the directional player graphics are located
+    protected playerOnGoalInViewDirectionSpritesY = NONE // row in the skin graphic where the directional player on goal graphics are located
+
+    protected animationGraphicCount         = NONE   // number of graphics available for showing animations
+    protected playerAnimationSpritesY       = NONE  // row in the skin graphic where the player animation graphics are located
+    protected playerOnGoalAnimationSpritesY = NONE  // row in the skin graphic where the player on goal animation graphics are located
+    protected boxAnimationSpritesY          = NONE  // row in the skin graphic where the box animation graphics are located
+    protected boxOnGoalAnimationSpritesY    = NONE  // row in the skin graphic where the box on goal animation graphics are located
+
     protected abstract mainImagesFile: string
     protected abstract wallImagesFile: string
-    protected abstract skinHasDirectionGraphics: boolean  // Flag indicating whether the skin supports the player looking in different directions
+
     useAlphaBlendingForAnimations= true         // Flag indicating whether alpha blending should be used for showing animations
 
     constructor() { }
@@ -101,57 +110,76 @@ export abstract class CommonSkinFormatBase {
     }
 
     private async setSpriteImages() {
-        this.boxSprite              = await this.createSpriteForCoordinates(2, 0)
-        this.boxOnGoalSprite        = await this.createSpriteForCoordinates(2,1)
+        this.boxSprite       = await this.createSpriteForCoordinates(2, 0)
+        this.boxOnGoalSprite = await this.createSpriteForCoordinates(2,1)
+        this.goalSprite      = await this.createSpriteForCoordinates(0,1)
+        this.floorSprite     = await this.createSpriteForCoordinates(0,0)
 
-        if(this.skinHasDirectionGraphics) {
+        await this.setPlayerGraphics();
+        await this.setWallGraphics();
+
+        this.createSelectedObjectAnimationBlendingGraphics()
+    }
+
+    /** Sets the correct graphics for drawing the player. */
+    private async setPlayerGraphics() {
+
+        if (this.playerInViewDirectionSpritesY != NONE) {
             this.playerInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(0, 4),   // player up
-                await this.createSpriteForCoordinates(2, 4),   // player down
-                await this.createSpriteForCoordinates(1, 4),   // player left
-                await this.createSpriteForCoordinates(3, 4)]   // player right
-
-            this.playerOnGoalInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(0, 5),   // player up
-                await this.createSpriteForCoordinates(2, 5),   // player down
-                await this.createSpriteForCoordinates(1, 5),   // player left
-                await this.createSpriteForCoordinates(3, 5)]   // player right
-
-            // There are four graphics for showing animations for: player, playerOnGoal, box and boxOnGoal.
-            for (let x = 0; x < this.animationGraphicCount; x++) {
-                if(this.skinsPath.indexOf("KenBri")) {  // special coding for KenBri skin
-                    this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(1, 0))   // player down for selected player animation graphics
-                    this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(1, 1)) // player down for selected player on goal animation graphics
-                    this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 6)) // Selected box animation graphics
-                    this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 7)) // Selected box on goal animation graphics
-                } else {
-                    this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 6)) // Selected player animation graphics
-                    this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 7)) // Selected player on goal animation graphics
-                    this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 8)) // Selected box animation graphics
-                    this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 9)) // Selected box on goal animation graphics
-                }
-            }
+                await this.createSpriteForCoordinates(0, this.playerInViewDirectionSpritesY),   // player up
+                await this.createSpriteForCoordinates(2, this.playerInViewDirectionSpritesY),   // player down
+                await this.createSpriteForCoordinates(1, this.playerInViewDirectionSpritesY),   // player left
+                await this.createSpriteForCoordinates(3, this.playerInViewDirectionSpritesY)]   // player right
         } else {
             this.playerInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(1, 0),   // player up
-                await this.createSpriteForCoordinates(1, 0),   // player down
-                await this.createSpriteForCoordinates(1, 0),   // player left
-                await this.createSpriteForCoordinates(1, 0)]   // player right
+                await this.createSpriteForCoordinates(1, 0),   // use the normal
+                await this.createSpriteForCoordinates(1, 0),   // player graphic
+                await this.createSpriteForCoordinates(1, 0),   // for all
+                await this.createSpriteForCoordinates(1, 0)]   // view directions
+        }
 
+        if (this.playerOnGoalInViewDirectionSpritesY != NONE) {
             this.playerOnGoalInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(1, 1),   // player up
-                await this.createSpriteForCoordinates(1, 1),   // player down
-                await this.createSpriteForCoordinates(1, 1),   // player left
-                await this.createSpriteForCoordinates(1, 1)]   // player right
+                await this.createSpriteForCoordinates(0, this.playerOnGoalInViewDirectionSpritesY),   // player up
+                await this.createSpriteForCoordinates(2, this.playerOnGoalInViewDirectionSpritesY),   // player down
+                await this.createSpriteForCoordinates(1, this.playerOnGoalInViewDirectionSpritesY),   // player left
+                await this.createSpriteForCoordinates(3, this.playerOnGoalInViewDirectionSpritesY)]   // player right
+        } else {
+            this.playerOnGoalInViewDirectionSprites = [
+                await this.createSpriteForCoordinates(1, 1),   // use the normal
+                await this.createSpriteForCoordinates(1, 1),   // player on goal graphic
+                await this.createSpriteForCoordinates(1, 1),   // for all
+                await this.createSpriteForCoordinates(1, 1)]   // view directions
+        }
 
-            // There are four graphics for showing animations for: player, playerOnGoal, box and boxOnGoal.
-            for (let x = 0; x < this.animationGraphicCount; x++) {
-                this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 4))       // Selected player animation graphics
-                this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 5)) // Selected player on goal animation graphics
-                this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 6))          // Selected box animation graphics
-                this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, 7))    // Selected box on goal animation graphics
+        // There are four graphic sets for showing animations. One for: player, playerOnGoal, box and boxOnGoal.
+        for (let x = 0; x < this.animationGraphicCount; x++) {
+            if (this.playerAnimationSpritesY != NONE) {
+                this.playerSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, this.playerAnimationSpritesY))
+            }
+            if (this.playerOnGoalAnimationSpritesY != NONE) {
+                this.playerOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, this.playerOnGoalAnimationSpritesY))
+            }
+            if (this.boxAnimationSpritesY != NONE) {
+                this.boxSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, this.boxAnimationSpritesY))
+            }
+            if (this.boxOnGoalAnimationSpritesY != NONE) {
+                this.boxOnGoalSelectedAnimationSprites.push(await this.createSpriteForCoordinates(x, this.boxOnGoalAnimationSpritesY))
             }
         }
+
+        // If the skin does not support animations then use the player down graphic when selected.
+        // This way for skins supporting directional player graphics the player will look at the user when selected.
+        if(this.playerSelectedAnimationSprites.length == 0) {
+            this.playerSelectedAnimationSprites.push(this.playerInViewDirectionSprites[DOWN])
+        }
+        if(this.playerOnGoalSelectedAnimationSprites.length == 0) {
+            this.playerOnGoalSelectedAnimationSprites.push(this.playerOnGoalInViewDirectionSprites[DOWN])
+        }
+    }
+
+    /** Sets the graphics for drawing the walls. */
+    private async setWallGraphics() {
         this.wallSprites = [
             await this.createWallSpriteForCoordinates(0, 0),   // wall no neighbor
             await this.createWallSpriteForCoordinates(1, 0),   // wall neighbor above
@@ -163,20 +191,16 @@ export abstract class CommonSkinFormatBase {
             await this.createWallSpriteForCoordinates(7, 0),   // wall neighbor above+right+below
             await this.createWallSpriteForCoordinates(8, 0),   // wall neighbor left
             await this.createWallSpriteForCoordinates(9, 0),   // wall neighbor above+left
-            await this.createWallSpriteForCoordinates(10,0),   // wall neighbor left+right
-            await this.createWallSpriteForCoordinates(11,0),   // wall neighbor above+left+right
-            await this.createWallSpriteForCoordinates(12,0),   // wall neighbor left+below
-            await this.createWallSpriteForCoordinates(13,0),   // wall neighbor above+left+below
-            await this.createWallSpriteForCoordinates(14,0),   // wall neighbor left+right+below
-            await this.createWallSpriteForCoordinates(15,0),   // wall neighbor above+left+right+below
+            await this.createWallSpriteForCoordinates(10, 0),   // wall neighbor left+right
+            await this.createWallSpriteForCoordinates(11, 0),   // wall neighbor above+left+right
+            await this.createWallSpriteForCoordinates(12, 0),   // wall neighbor left+below
+            await this.createWallSpriteForCoordinates(13, 0),   // wall neighbor above+left+below
+            await this.createWallSpriteForCoordinates(14, 0),   // wall neighbor left+right+below
+            await this.createWallSpriteForCoordinates(15, 0),   // wall neighbor above+left+right+below
             await this.createBeautyGraphic(),                        // beauty graphic
         ]
-
-        this.goalSprite  = await this.createSpriteForCoordinates(0,1)
-        this.floorSprite = await this.createSpriteForCoordinates(0,0)
-
-        this.createSelectedObjectAnimationBlendingGraphics()
     }
+
 
     getImageSize(): number {
         return this.imageSize
@@ -198,6 +222,7 @@ export abstract class CommonSkinFormatBase {
     }
 
     getFloorSprite(): SpriteData { return this.floorSprite }
+    getGoalSprite(): SpriteData { return this.goalSprite }
 
     protected getSpriteForWall(board: Board, position: number): SpriteData {
 

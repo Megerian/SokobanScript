@@ -145,7 +145,6 @@ export class GUI {
     private readonly snapshotList             = document.getElementById("snapshotList")             as HTMLDivElement
     private readonly importLURDStringButton   = document.getElementById("importLURDString")         as HTMLButtonElement
     private readonly saveSnapshotButton       = document.getElementById("saveSnapshotButton")       as HTMLButtonElement
-    private readonly deleteSnapshotButton     = document.getElementById("deleteSnapshotButton")     as HTMLButtonElement
     private readonly snapshotSidebar          = document.getElementById("snapshotSidebar")          as HTMLDivElement
     private readonly showSnapshotListCheckbox = document.getElementById("showSnapshotListCheckbox") as HTMLInputElement
     private readonly filterSolutionsButton    = document.getElementById("filterSolutionsButton")    as HTMLButtonElement
@@ -204,8 +203,6 @@ export class GUI {
 
         this.snapshotSidebarView = new SnapshotSidebarView(
             this.snapshotList,
-            this.snapshotSidebar,
-            this.deleteSnapshotButton,
             this.filterSolutionsButton,
             this.filterSnapshotsButton,
             this.snapshotContextMenu,
@@ -1236,10 +1233,6 @@ export class GUI {
 
             case Action.toggleSnapshotList:
                 this.toggleSnapshotListInternal()
-                break
-
-            case Action.toggleDeleteSnapshotMode:
-                this.snapshotSidebarView.toggleDeleteMode()
                 break
 
             case Action.toggleRuler:

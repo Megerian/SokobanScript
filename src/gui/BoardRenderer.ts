@@ -12,7 +12,7 @@ import { Board, REACHABLE_BOX, REACHABLE_PLAYER } from "../board/Board"
 import { CommonSkinFormatBase, SpriteData } from "../skins/commonSkinFormat/CommonSkinFormatBase"
 import { XSB_BACKGROUND, XSB_WALL } from "../Sokoban/PuzzleFormat"
 import { Settings } from "../app/Settings"
-import { Utilities } from "../Utilities/Utilities"
+import { Utilities } from "../utilities/Utilities"
 import { DIRECTION, UP } from "../Sokoban/Directions"
 
 /**
@@ -178,7 +178,7 @@ export class BoardRenderer {
     private getMaximalGraphicSize(): number {
 
         const MINIMUM_GRAPHIC_SIZE = 16
-        const MAXIMUM_GRAPHIC_SIZE = Math.min(64, this.skin.getImageSize())
+        const MAXIMUM_GRAPHIC_SIZE = 2*this.skin.getImageSize()
 
         // Defensive: avoid division by zero if board is not properly initialized.
         if (this.board.width <= 0 || this.board.height <= 0) {
@@ -414,7 +414,7 @@ export class BoardRenderer {
                 const frameIndex = this.computeAnimationFrameIndex(sprites.length, timeMs)
                 const sprite     = sprites[frameIndex]
 
-                this.redrawTileWithOverlay(playerPos, sprite)
+                this.redrawAnimationSprite(playerPos, sprite)
             }
         }
 
@@ -433,7 +433,7 @@ export class BoardRenderer {
                 const frameIndex = this.computeAnimationFrameIndex(sprites.length, timeMs)
                 const sprite     = sprites[frameIndex]
 
-                this.redrawTileWithOverlay(boxPos, sprite)
+                this.redrawAnimationSprite(boxPos, sprite)
             }
         }
     }
@@ -471,14 +471,20 @@ export class BoardRenderer {
     }
 
     /**
-     * Redraws the base tile at the given position and then draws the
-     * specified overlay sprite (used for selection highlight frames).
+     * Redraws the next animation sprite.
      */
-    private redrawTileWithOverlay(position: number, overlaySprite: SpriteData): void {
-        this.drawBaseTileAtPosition(position, this.lastPlayerDirection)
+    private redrawAnimationSprite(position: number, sprite: SpriteData): void {
 
         const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
-        this.drawSprite(overlaySprite, outputX, outputY)
+
+        // For skins with transparent player/box sprites, draw the floor first.
+        if(this.board.isGoal(position)) {
+            this.drawSprite(this.skin.getGoalSprite(), outputX, outputY)
+        } else {
+            this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)
+        }
+
+        this.drawSprite(sprite, outputX, outputY)
     }
 
     // ---------------------------------------------------------------------
@@ -506,7 +512,11 @@ export class BoardRenderer {
         }
 
         // For skins with transparent player/box sprites, draw the floor first.
-        this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)
+        if(this.board.isGoal(position)) {
+            this.drawSprite(this.skin.getGoalSprite(), outputX, outputY)
+        } else {
+            this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)
+        }
 
         // Draw the main sprite at this position (walls, goals, boxes, player, ...).
         const spriteData = this.skin.getSprite(this.board, position, playerDirection)

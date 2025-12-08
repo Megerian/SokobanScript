@@ -75,6 +75,14 @@ body {
     background: transparent !important;
 }
 
+/* "Statistics" in the Saved Puzzles menu: normal case, bold, a bit larger */
+#databaseMenu .menu .header {
+    text-transform: none !important;  /* keep the original capitalization ("Statistics") */
+    font-weight: 700;                 /* bold text */
+    font-size: 1.1rem;                /* increase size slightly (adjust as needed) */
+    line-height: 1.2;                 /* optional: improves vertical spacing */
+}
+
 /* ===================================================================== */
 /*  "Puzzle solved!" overlay                                             */
 /* ===================================================================== */
@@ -216,17 +224,13 @@ label {
 /*  Delete icon inside snapshot/solution items                           */
 /* ===================================================================== */
 
+/* Always show the red X delete icon */
 .snapshot-delete-icon {
     float: right;
-    opacity: 0.4;
+    opacity: 0.6;
     cursor: pointer;
-    display: none !important;      /* hidden by default, only visible in delete mode */
-    color: #db2828;                /* red icon */
-}
-
-/* When delete mode is active on the sidebar, show the delete icon */
-#snapshotSidebar.delete-mode .snapshot-delete-icon {
-    display: inline-block !important;
+    display: inline-block;      /* always visible */
+    color: #db2828;             /* red icon */
 }
 
 /* Highlight the delete icon on hover */

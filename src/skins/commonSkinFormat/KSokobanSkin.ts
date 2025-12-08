@@ -15,6 +15,5 @@ export class KSokobanSkin extends CommonSkinFormatBase {
 
     protected imageSize = 56
     protected animationGraphicCount = 0
-    protected skinHasDirectionGraphics = false
     defaultAnimationDelayInMs = 150
 }

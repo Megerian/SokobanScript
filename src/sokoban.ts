@@ -47,6 +47,22 @@ async function startApp(): Promise<void> {
 
 startApp()
 
+// PWA: register service worker (non-blocking)
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker
+            .register(new URL("./service-worker.js", import.meta.url))
+            .then(reg => {
+                if (process.env.NODE_ENV === "development") {
+                    console.log("Service worker registered with scope:", reg.scope)
+                }
+            })
+            .catch(err => {
+                console.error("Service worker registration failed:", err)
+            })
+    })
+}
+
 /**
  * Adds a new entry to the list for the user puzzle as a separate "collection".
  */

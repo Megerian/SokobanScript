@@ -5,22 +5,27 @@
   "description": "Play Sokoban online",
   "homepage": "https://sourceforge.net/projects/sokoban-solver-statistics/",
   "dependencies": {
-    "fomantic-ui": "^2.10.0-beta.71",
+    "fomantic-ui": "^2.10.0-beta.72",
     "jquery": "^3.7.1",
     "localforage": "^1.10.0"
   },
+
   "devDependencies": {
+    "@parcel/packager-raw-url": "^2.16.1",
+    "@parcel/transformer-webmanifest": "^2.16.1",
     "@types/jquery": "^3.5.33",
     "@types/node": "^24.10.1",
     "ncp": "^2.0.0",
     "parcel": "^2.16.1",
     "typescript": "^5.9.3"
   },
+
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "ncp resources release/resources && parcel build src/index.html --no-source-maps --dist-dir ./release",
     "start": "ncp resources dist/resources && parcel src/index.html"
   },
+
   "author": "Matthias Meger",
   "license": "GPL-3.0-or-later"
 }

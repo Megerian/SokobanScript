@@ -1,0 +1,23 @@
+{
+  "name": "Sokoban web app",
+  "short_name": "Sokoban",
+  "description": "A Sokoban puzzle game.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#EBEDEF",
+  "theme_color": "#2185d0",
+  "icons": [
+    {
+      "src": "/resources/icons/sokoban-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/resources/icons/sokoban-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

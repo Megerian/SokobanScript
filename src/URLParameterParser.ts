@@ -1,4 +1,4 @@
-import { Utilities } from "./Utilities/Utilities"
+import { Utilities } from "./utilities/Utilities"
 import { PuzzleCollectionIO } from "./services/PuzzleCollectionIO"
 import { Board } from "./board/Board"
 import { Puzzle } from "./Sokoban/domainObjects/Puzzle"

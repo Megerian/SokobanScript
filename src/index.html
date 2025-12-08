@@ -6,6 +6,13 @@
 
     <title>The Sokoban Game</title>
 
+    <!-- PWA: theme color for browser UI -->
+    <meta name="theme-color" content="#2185d0">
+
+    <!-- PWA: web app manifest -->
+    <link rel="manifest" href="./manifest.webmanifest">
+
+
     <!-- Fomantic UI CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.css">
 
@@ -61,15 +68,6 @@
             <i class="paste icon"></i>
             Import snapshot
         </button>
-
-        <button
-                class="ui center labeled icon button"
-                id="deleteSnapshotButton"
-                title="Toggle delete mode for snapshots and solutions"
-        >
-            <i class="trash icon"></i>
-            Delete snapshots
-        </button>
     </div>
 </div>
 
@@ -116,192 +114,187 @@
                 </div>
             </div>
 
-            <!-- View menu -->
-            <div class="ui simple dropdown item">
-                <i class="eye icon"></i> View
-                <i class="dropdown icon"></i>
-                <div class="menu">
-
-                    <!-- Skin -->
-                    <div class="ui dropdown item">
-                        <i class="images icon"></i> Skin <i class="dropdown icon"></i>
-                        <div class="menu">
-                            <div data-skinName="AntiqueDesk"  class="item">AntiqueDesk by Gerry Wiseman</div>
-                            <div data-skinName="AntiqueDesk3" class="item">AntiqueDesk3 by Gerry Wiseman</div>
-                            <div data-skinName="HeavyMetal3"  class="item">HeavyMetal3 by Gerry Wiseman</div>
-                            <div data-skinName="NightShift3"  class="item">NightShift3 by Gerry Wiseman</div>
-                            <div data-skinName="SokoGems"     class="item">SokoGems by Gerry Wiseman</div>
-                            <div data-skinName="KSokoban"     class="item">KSokoban by Anders Widell</div>
-                            <div data-skinName="KenBri"       class="item">KenBri by Kenney Vleugels & Brian Damgaard</div>
-                            <div data-skinName="KSokoban2"    class="item active selected">
-                                KSokoban by Anders W./George Petrov
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Graphic size -->
-                    <div class="ui dropdown item">
-                        <i class="expand arrows alternate icon"></i>
-                        Graphic size
-                        <i class="dropdown icon"></i>
-                        <div class="menu">
-                            <div data-skinGraphicSize="auto" class="item active selected">automatic</div>
-                            <div data-skinGraphicSize="16"   class="item">16px</div>
-                            <div data-skinGraphicSize="24"   class="item">24px</div>
-                            <div data-skinGraphicSize="32"   class="item">32px</div>
-                            <div data-skinGraphicSize="40"   class="item">40px</div>
-                            <div data-skinGraphicSize="48"   class="item">48px</div>
-                            <div data-skinGraphicSize="56"   class="item">56px</div>
-                            <div data-skinGraphicSize="64"   class="item">64px</div>
-                            <div data-skinGraphicSize="72"   class="item">72px</div>
-                            <div data-skinGraphicSize="80"   class="item">80px</div>
-                            <div data-skinGraphicSize="88"   class="item">88px</div>
-                            <div data-skinGraphicSize="96"   class="item">96px</div>
-                            <div data-skinGraphicSize="104"  class="item">104px</div>
-                            <div data-skinGraphicSize="112"  class="item">112px</div>
-                            <div data-skinGraphicSize="120"  class="item">120px</div>
-                        </div>
-                    </div>
-
-                    <!-- Animation settings -->
-                    <div class="ui dropdown item">
-                        <i class="running icon"></i> Animations <i class="dropdown icon"></i>
-
-                        <div class="menu">
-                            <!-- Move animation delay -->
-                            <div class="ui dropdown item">
-                                <i class="dropdown icon"></i><i class="stopwatch icon"></i>
-                                Move animation delay
-                                <div class="ui menu">
-                                    <div data-moveAnimationDelay="0"   class="item">0ms</div>
-                                    <div data-moveAnimationDelay="10"  class="item">10ms</div>
-                                    <div data-moveAnimationDelay="20"  class="item">20ms</div>
-                                    <div data-moveAnimationDelay="30"  class="item">30ms</div>
-                                    <div data-moveAnimationDelay="40"  class="item">40ms</div>
-                                    <div data-moveAnimationDelay="50"  class="item active selected">50ms</div>
-                                    <div data-moveAnimationDelay="60"  class="item">60ms</div>
-                                    <div data-moveAnimationDelay="70"  class="item">70ms</div>
-                                    <div data-moveAnimationDelay="80"  class="item">80ms</div>
-                                    <div data-moveAnimationDelay="90"  class="item">90ms</div>
-                                    <div data-moveAnimationDelay="100" class="item">100ms</div>
-                                    <div data-moveAnimationDelay="110" class="item">110ms</div>
-                                    <div data-moveAnimationDelay="120" class="item">120ms</div>
-                                    <div data-moveAnimationDelay="130" class="item">130ms</div>
-                                    <div data-moveAnimationDelay="140" class="item">140ms</div>
-                                    <div data-moveAnimationDelay="150" class="item">150ms</div>
-                                    <div data-moveAnimationDelay="160" class="item">160ms</div>
-                                    <div data-moveAnimationDelay="170" class="item">170ms</div>
-                                    <div data-moveAnimationDelay="180" class="item">180ms</div>
-                                    <div data-moveAnimationDelay="190" class="item">190ms</div>
-                                    <div data-moveAnimationDelay="200" class="item">200ms</div>
-                                </div>
-                            </div>
-
-                            <div class="ui divider"></div>
-
-                            <!-- Selected object animation speed -->
-                            <div class="ui dropdown item">
-                                <i class="dropdown icon"></i><i class="stopwatch icon"></i>
-                                Selected object animation speed
-                                <div class="menu">
-                                    <div data-selectedObjectAnimationDelay="10"   class="item">10%</div>
-                                    <div data-selectedObjectAnimationDelay="20"   class="item">20%</div>
-                                    <div data-selectedObjectAnimationDelay="30"   class="item">30%</div>
-                                    <div data-selectedObjectAnimationDelay="40"   class="item">40%</div>
-                                    <div data-selectedObjectAnimationDelay="50"   class="item">50%</div>
-                                    <div data-selectedObjectAnimationDelay="60"   class="item">60%</div>
-                                    <div data-selectedObjectAnimationDelay="70"   class="item">70%</div>
-                                    <div data-selectedObjectAnimationDelay="80"   class="item">80%</div>
-                                    <div data-selectedObjectAnimationDelay="90"   class="item">90%</div>
-                                    <div data-selectedObjectAnimationDelay="100"  class="item active selected">100%</div>
-                                    <div data-selectedObjectAnimationDelay="110"  class="item">110%</div>
-                                    <div data-selectedObjectAnimationDelay="120"  class="item">120%</div>
-                                    <div data-selectedObjectAnimationDelay="130"  class="item">130%</div>
-                                    <div data-selectedObjectAnimationDelay="140"  class="item">140%</div>
-                                    <div data-selectedObjectAnimationDelay="150"  class="item">150%</div>
-                                    <div data-selectedObjectAnimationDelay="160"  class="item">160%</div>
-                                    <div data-selectedObjectAnimationDelay="170"  class="item">170%</div>
-                                    <div data-selectedObjectAnimationDelay="180"  class="item">180%</div>
-                                    <div data-selectedObjectAnimationDelay="190"  class="item">190%</div>
-                                    <div data-selectedObjectAnimationDelay="200"  class="item">200%</div>
-                                </div>
-                            </div>
-
-                            <!-- Toggle animation on/off -->
-                            <div class="item">
-                                <i class="running icon"></i>
-                                <div class="ui checkbox">
-                                    <input type="checkbox" id="showAnimations" checked>
-                                    <label for="showAnimations">Show animation</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Background color/image -->
-                    <div class="ui simple dropdown item">
-                        <i class="dropdown icon"></i><i class="palette icon"></i>
-                        Background
-                        <div class="menu">
-
-                            <div class="header">Background color</div>
-
-                            <div class="item">
-                                <i class="tint icon"></i>
-                                <label for="backgroundColor">Set new color</label>
-                                <input type="color" value="#EBEDEF" id="backgroundColor">
-                            </div>
-
-                            <!-- Default color -->
-                            <div class="item" id="setDefaultBackgroundColor">
-                                <i class="tint icon"></i>
-                                Set default color
-                            </div>
-
-<!--                            <div class="header">Background image</div>-->
-<!---->
-                            <!-- Background image -->
-<!--                            <div class="item" id="setDropsBackgroundImage">-->
-<!--                                <i class="image icon"></i>Drops image-->
-<!--                            </div>-->
-                        </div>
-                    </div>
-
-                    <!-- Snapshot list toggle -->
-                    <div class="item">
-                        <i class="list ul icon"></i>
-                        <div class="ui checkbox">
-                            <input type="checkbox" id="showSnapshotListCheckbox">
-                            <label for="showSnapshotListCheckbox">Show saved states</label>
-                        </div>
-                    </div>
-
-                    <!-- Hide walls -->
-                    <div class="item">
-                        <i class="eye slash outline icon"></i>
-                        <div class="ui checkbox">
-                            <input type="checkbox" id="hideWalls">
-                            <label for="hideWalls">Hide walls</label>
-                        </div>
-                    </div>
-
-                    <!-- Ruler toggle -->
-                    <div class="item">
-                        <i class="ruler horizontal icon"></i>
-                        <div class="ui checkbox">
-                            <input type="checkbox" id="showRuler">
-                            <label for="showRuler">Show ruler (A/B/C, 1/2/3)</label>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
-
             <!-- Settings menu -->
             <div class="ui simple dropdown item">
                 <i class="settings icon"></i> Settings <i class="dropdown icon"></i>
 
                 <div class="menu">
+
+                    <!-- View als Untermenü innerhalb von Settings -->
+                    <div class="ui dropdown item">
+                        <i class="eye icon"></i> View <i class="dropdown icon"></i>
+                        <div class="menu">
+
+                            <!-- Skin -->
+                            <div class="ui dropdown item">
+                                <i class="images icon"></i> Skin <i class="dropdown icon"></i>
+                                <div class="menu">
+                                    <div data-skinName="AntiqueDesk"  class="item">AntiqueDesk by Gerry Wiseman</div>
+                                    <div data-skinName="AntiqueDesk3" class="item">AntiqueDesk3 by Gerry Wiseman</div>
+                                    <div data-skinName="HeavyMetal3"  class="item">HeavyMetal3 by Gerry Wiseman</div>
+                                    <div data-skinName="NightShift3"  class="item">NightShift3 by Gerry Wiseman</div>
+                                    <div data-skinName="SokoGems"     class="item">SokoGems by Gerry Wiseman</div>
+                                    <div data-skinName="KSokoban"     class="item">KSokoban by Anders Widell</div>
+                                    <div data-skinName="KenBri"       class="item">KenBri by Kenney Vleugels &amp; Brian Damgaard</div>
+                                    <div data-skinName="KSokoban2"    class="item active selected">
+                                        KSokoban by Anders W./George Petrov
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Graphic size -->
+                            <div class="ui dropdown item">
+                                <i class="expand arrows alternate icon"></i>
+                                Graphic size
+                                <i class="dropdown icon"></i>
+                                <div class="menu">
+                                    <div data-skinGraphicSize="auto" class="item active selected">automatic</div>
+                                    <div data-skinGraphicSize="16"   class="item">16px</div>
+                                    <div data-skinGraphicSize="24"   class="item">24px</div>
+                                    <div data-skinGraphicSize="32"   class="item">32px</div>
+                                    <div data-skinGraphicSize="40"   class="item">40px</div>
+                                    <div data-skinGraphicSize="48"   class="item">48px</div>
+                                    <div data-skinGraphicSize="56"   class="item">56px</div>
+                                    <div data-skinGraphicSize="64"   class="item">64px</div>
+                                    <div data-skinGraphicSize="72"   class="item">72px</div>
+                                    <div data-skinGraphicSize="80"   class="item">80px</div>
+                                    <div data-skinGraphicSize="88"   class="item">88px</div>
+                                    <div data-skinGraphicSize="96"   class="item">96px</div>
+                                    <div data-skinGraphicSize="104"  class="item">104px</div>
+                                    <div data-skinGraphicSize="112"  class="item">112px</div>
+                                    <div data-skinGraphicSize="120"  class="item">120px</div>
+                                </div>
+                            </div>
+
+                            <!-- Animation settings -->
+                            <div class="ui dropdown item">
+                                <i class="running icon"></i> Animations <i class="dropdown icon"></i>
+
+                                <div class="menu">
+                                    <!-- Move animation delay -->
+                                    <div class="ui dropdown item">
+                                        <i class="dropdown icon"></i><i class="stopwatch icon"></i>
+                                        Move animation delay
+                                        <div class="ui menu">
+                                            <div data-moveAnimationDelay="0"   class="item">0ms</div>
+                                            <div data-moveAnimationDelay="10"  class="item">10ms</div>
+                                            <div data-moveAnimationDelay="20"  class="item">20ms</div>
+                                            <div data-moveAnimationDelay="30"  class="item">30ms</div>
+                                            <div data-moveAnimationDelay="40"  class="item">40ms</div>
+                                            <div data-moveAnimationDelay="50"  class="item active selected">50ms</div>
+                                            <div data-moveAnimationDelay="60"  class="item">60ms</div>
+                                            <div data-moveAnimationDelay="70"  class="item">70ms</div>
+                                            <div data-moveAnimationDelay="80"  class="item">80ms</div>
+                                            <div data-moveAnimationDelay="90"  class="item">90ms</div>
+                                            <div data-moveAnimationDelay="100" class="item">100ms</div>
+                                            <div data-moveAnimationDelay="110" class="item">110ms</div>
+                                            <div data-moveAnimationDelay="120" class="item">120ms</div>
+                                            <div data-moveAnimationDelay="130" class="item">130ms</div>
+                                            <div data-moveAnimationDelay="140" class="item">140ms</div>
+                                            <div data-moveAnimationDelay="150" class="item">150ms</div>
+                                            <div data-moveAnimationDelay="160" class="item">160ms</div>
+                                            <div data-moveAnimationDelay="170" class="item">170ms</div>
+                                            <div data-moveAnimationDelay="180" class="item">180ms</div>
+                                            <div data-moveAnimationDelay="190" class="item">190ms</div>
+                                            <div data-moveAnimationDelay="200" class="item">200ms</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="ui divider"></div>
+
+                                    <!-- Selected object animation speed -->
+                                    <div class="ui dropdown item">
+                                        <i class="dropdown icon"></i><i class="stopwatch icon"></i>
+                                        Selected object animation speed
+                                        <div class="menu">
+                                            <div data-selectedObjectAnimationDelay="10"   class="item">10%</div>
+                                            <div data-selectedObjectAnimationDelay="20"   class="item">20%</div>
+                                            <div data-selectedObjectAnimationDelay="30"   class="item">30%</div>
+                                            <div data-selectedObjectAnimationDelay="40"   class="item">40%</div>
+                                            <div data-selectedObjectAnimationDelay="50"   class="item">50%</div>
+                                            <div data-selectedObjectAnimationDelay="60"   class="item">60%</div>
+                                            <div data-selectedObjectAnimationDelay="70"   class="item">70%</div>
+                                            <div data-selectedObjectAnimationDelay="80"   class="item">80%</div>
+                                            <div data-selectedObjectAnimationDelay="90"   class="item">90%</div>
+                                            <div data-selectedObjectAnimationDelay="100"  class="item active selected">100%</div>
+                                            <div data-selectedObjectAnimationDelay="110"  class="item">110%</div>
+                                            <div data-selectedObjectAnimationDelay="120"  class="item">120%</div>
+                                            <div data-selectedObjectAnimationDelay="130"  class="item">130%</div>
+                                            <div data-selectedObjectAnimationDelay="140"  class="item">140%</div>
+                                            <div data-selectedObjectAnimationDelay="150"  class="item">150%</div>
+                                            <div data-selectedObjectAnimationDelay="160"  class="item">160%</div>
+                                            <div data-selectedObjectAnimationDelay="170"  class="item">170%</div>
+                                            <div data-selectedObjectAnimationDelay="180"  class="item">180%</div>
+                                            <div data-selectedObjectAnimationDelay="190"  class="item">190%</div>
+                                            <div data-selectedObjectAnimationDelay="200"  class="item">200%</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Toggle animation on/off -->
+                                    <div class="item">
+                                        <i class="running icon"></i>
+                                        <div class="ui checkbox">
+                                            <input type="checkbox" id="showAnimations" checked>
+                                            <label for="showAnimations">Show animation</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Background color/image -->
+                            <div class="ui dropdown item">
+                                <i class="palette icon"></i> Background <i class="dropdown icon"></i>
+                                <div class="menu">
+
+                                    <div class="header">Background color</div>
+
+                                    <div class="item">
+                                        <i class="tint icon"></i>
+                                        <label for="backgroundColor">Set new color</label>
+                                        <input type="color" value="#EBEDEF" id="backgroundColor">
+                                    </div>
+
+                                    <!-- Default color -->
+                                    <div class="item" id="setDefaultBackgroundColor">
+                                        <i class="tint icon"></i>
+                                        Set default color
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Snapshot list toggle -->
+                            <div class="item">
+                                <i class="list ul icon"></i>
+                                <div class="ui checkbox">
+                                    <input type="checkbox" id="showSnapshotListCheckbox">
+                                    <label for="showSnapshotListCheckbox">Show saved states</label>
+                                </div>
+                            </div>
+
+                            <!-- Hide walls -->
+                            <div class="item">
+                                <i class="eye slash outline icon"></i>
+                                <div class="ui checkbox">
+                                    <input type="checkbox" id="hideWalls">
+                                    <label for="hideWalls">Hide walls</label>
+                                </div>
+                            </div>
+
+                            <!-- Ruler toggle -->
+                            <div class="item">
+                                <i class="ruler horizontal icon"></i>
+                                <div class="ui checkbox">
+                                    <input type="checkbox" id="showRuler">
+                                    <label for="showRuler">Show ruler (A/B/C, 1/2/3)</label>
+                                </div>
+                            </div>
+
+                        </div> <!-- /View .menu -->
+                    </div> <!-- /View dropdown item -->
+
+
+                    <div class="divider"></div>
+
                     <!-- Sound -->
                     <a class="item">
                         <i class="volume up icon"></i>
@@ -310,8 +303,9 @@
                             <label for="soundEnabled">Sound</label>
                         </div>
                     </a>
-                </div>
-            </div>
+
+                </div> <!-- /Settings .menu -->
+            </div> <!-- /Settings dropdown item -->
 
             <!-- Letslogic menu -->
             <div class="ui simple dropdown item">
@@ -334,7 +328,7 @@
 
             <!-- Database menu -->
             <div class="ui simple dropdown item" id="databaseMenu">
-                <i class="database icon"></i> Saved Data <i class="dropdown icon"></i>
+                <i class="database icon"></i> Saved Puzzles <i class="dropdown icon"></i>
                 <div class="menu">
                     <div class="header">Statistics</div>
                     <div class="item">
@@ -365,7 +359,7 @@
 
                     <!-- About -->
                     <a class="item">
-                        Sokoban for JavaScript ver. 0.71
+                        Sokoban for JavaScript ver. 0.73
                     </a>
                 </div>
             </div>
@@ -622,11 +616,11 @@
     </div>
 
     <!-- Sounds -->
-    <audio id="moveSound"        preload><source src="/resources/sound/move.wav" /></audio>
-    <audio id="pushSound"        preload><source src="/resources/sound/push.wav" /></audio>
-    <audio id="pushToGoalSound"  preload><source src="/resources/sound/pushToGoal.wav" /></audio>
-    <audio id="moveBlockedSound" preload><source src="/resources/sound/moveBlocked.wav" /></audio>
-    <audio id="solvedSound"      preload><source src="/resources/sound/solved.wav" /></audio>
+    <audio id="moveSound"        preload><source src="/src/assets/sound/move.wav" /></audio>
+    <audio id="pushSound"        preload><source src="/src/assets/sound/push.wav" /></audio>
+    <audio id="pushToGoalSound"  preload><source src="/src/assets/sound/pushToGoal.wav" /></audio>
+    <audio id="moveBlockedSound" preload><source src="/src/assets/sound/moveBlocked.wav" /></audio>
+    <audio id="solvedSound"      preload><source src="/src/assets/sound/solved.wav" /></audio>
 
     <!-- Hidden file input used to load a puzzle from disk -->
     <input
