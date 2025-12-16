@@ -1,22 +1,22 @@
 {
-  "name": "sokoban",
+  "name": "sokoban-web-app",
   "version": "1.0.0",
   "source": "src/index.html",
   "description": "Play Sokoban online",
   "homepage": "https://sourceforge.net/projects/sokoban-solver-statistics/",
   "dependencies": {
-    "fomantic-ui": "^2.10.0-beta.72",
+    "fomantic-ui": "^2.10.0-beta.74",
     "jquery": "^3.7.1",
     "localforage": "^1.10.0"
   },
 
   "devDependencies": {
-    "@parcel/packager-raw-url": "^2.16.1",
-    "@parcel/transformer-webmanifest": "^2.16.1",
+    "@parcel/packager-raw-url": "^2.16.3",
+    "@parcel/transformer-webmanifest": "^2.16.3",
     "@types/jquery": "^3.5.33",
-    "@types/node": "^24.10.1",
+    "@types/node": "^25.0.2",
     "ncp": "^2.0.0",
-    "parcel": "^2.16.1",
+    "parcel": "^2.16.3",
     "typescript": "^5.9.3"
   },
 
