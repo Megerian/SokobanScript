@@ -71,6 +71,7 @@
     </div>
 </div>
 
+
 <!-- Pusher: content that moves when the sidebar is visible -->
 <div id="pusher" class="pusher">
 
@@ -78,8 +79,9 @@
     <div class="ui top attached menu">
         <div class="ui container">
 
-            <!-- Puzzle menu -->
-            <div class="ui simple dropdown item">
+
+            <!-- Puzzle menu (desktop only) -->
+            <div class="ui simple dropdown item desktop-only">
                 <i class="grid layout icon"></i> Puzzle
                 <i class="dropdown icon"></i>
 
@@ -98,8 +100,8 @@
                 </div>
             </div>
 
-            <!-- Moves menu -->
-            <div class="ui simple dropdown item">
+            <!-- Moves menu (desktop only) -->
+            <div class="ui simple dropdown item desktop-only">
                 <i class="barcode icon"></i> Moves
                 <i class="dropdown icon"></i>
 
@@ -114,8 +116,9 @@
                 </div>
             </div>
 
-            <!-- Settings menu -->
-            <div class="ui simple dropdown item">
+
+            <!-- Settings menu (desktop only) -->
+            <div class="ui simple dropdown item desktop-only">
                 <i class="settings icon"></i> Settings <i class="dropdown icon"></i>
 
                 <div class="menu">
@@ -307,8 +310,8 @@
                 </div> <!-- /Settings .menu -->
             </div> <!-- /Settings dropdown item -->
 
-            <!-- Letslogic menu -->
-            <div class="ui simple dropdown item">
+            <!-- Letslogic menu (desktop only) -->
+            <div class="ui simple dropdown item desktop-only">
                 <i class="cloud upload icon"></i> Letslogic <i class="dropdown icon"></i>
 
                 <div class="menu">
@@ -323,11 +326,17 @@
                     <div class="item" id="letslogicSubmitCollection">
                         <i class="upload icon"></i> Submit solutions of all collection puzzles
                     </div>
+
+                    <div class="divider"></div>
+
+                    <div class="item" id="letslogicImportCollections">
+                        <i class="download icon"></i> Import collections from Letslogic…
+                    </div>
                 </div>
             </div>
 
-            <!-- Database menu -->
-            <div class="ui simple dropdown item" id="databaseMenu">
+            <!-- Database menu (desktop only) -->
+            <div class="ui simple dropdown item desktop-only" id="databaseMenu">
                 <i class="database icon"></i> Saved Puzzles <i class="dropdown icon"></i>
                 <div class="menu">
                     <div class="header">Statistics</div>
@@ -349,8 +358,8 @@
                 </div>
             </div>
 
-            <!-- Info menu -->
-            <div class="ui simple dropdown item">
+            <!-- Info menu (desktop only) -->
+            <div class="ui simple dropdown item desktop-only">
                 <i class="info icon"></i> Info
                 <div class="menu">
                     <div class="item" id="howToPlay">
@@ -397,6 +406,44 @@
                     <div class="ui deny button">Cancel</div>
                     <div class="ui primary positive button" id="letslogicApiKeySaveButton">
                         Save API key
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Letslogic collections import -->
+            <div class="ui modal" id="letslogicCollectionsModal">
+                <div class="header">
+                    Import collections from Letslogic
+                </div>
+
+                <div class="content">
+                    <div class="ui small message" id="letslogicCollectionsStatus" style="display:none"></div>
+
+                    <div class="ui grid" style="margin-bottom: 8px">
+                        <div class="eight wide column">
+                            <button class="ui primary button" id="letslogicFetchCollectionsButton">
+                                <i class="sync alternate icon"></i>
+                                Load collections
+                            </button>
+                        </div>
+                        <div class="eight wide right aligned column">
+                            <div class="ui checkbox">
+                                <input type="checkbox" id="letslogicSelectAllCollections">
+                                <label for="letslogicSelectAllCollections">Select all</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="letslogicCollectionsList" class="ui very relaxed divided selection list"
+                         style="max-height: 50vh; overflow-y: auto">
+                        <!-- dynamically populated -->
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <div class="ui deny button">Cancel</div>
+                    <div class="ui primary positive button" id="letslogicImportCollectionsConfirm">
+                        Import selected
                     </div>
                 </div>
             </div>
@@ -476,17 +523,17 @@
 
             <!-- Toolbar -->
             <div class="toolbarButtons" id="toolbarButtons">
-                <button class="ui icon button" title="Undo all" id="undoAllButton">
-                    <i class="angle double left icon"></i>
+                <button class="ui icon button" title="Undo all" aria-label="Undo all moves" id="undoAllButton">
+                    <i class="angle double left icon" aria-hidden="true"></i>
                 </button>
-                <button class="ui icon button" title="Undo" id="undoButton">
-                    <i class="angle left icon"></i>
+                <button class="ui icon button" title="Undo" aria-label="Undo move" id="undoButton">
+                    <i class="angle left icon" aria-hidden="true"></i>
                 </button>
-                <button class="ui icon button" title="Redo" id="redoButton">
-                    <i class="angle right icon"></i>
+                <button class="ui icon button" title="Redo" aria-label="Redo move" id="redoButton">
+                    <i class="angle right icon" aria-hidden="true"></i>
                 </button>
-                <button class="ui icon button" title="Redo all" id="redoAllButton">
-                    <i class="angle double right icon"></i>
+                <button class="ui icon button" title="Redo all" aria-label="Redo all moves" id="redoAllButton">
+                    <i class="angle double right icon" aria-hidden="true"></i>
                 </button>
             </div>
 
@@ -521,6 +568,7 @@
 
         </div>
     </div>
+
 
     <!-- Modal: invalid board -->
     <div class="ui modal" id="showInvalidBoard">
@@ -655,6 +703,7 @@
 
     <!-- Main app entry point -->
     <script type="module" src="sokoban.ts"></script>
+
 
 </div> <!-- end pusher -->
 

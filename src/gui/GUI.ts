@@ -26,6 +26,8 @@ import { LetslogicProgressCallbacks } from "../services/letslogic/LetsLogicServi
 import { KeyboardController } from "./KeyboardController"
 import { BoardRulerView } from "./BoardRulerView"
 import { Action } from "./Actions"
+import { LetsLogicClient, LetsLogicLevel, LetsLogicLevelCollection } from "../services/letslogic/LetsLogicClient"
+import { DataStorage, StoredLetslogicCollectionDTO } from "../storage/DataStorage"
 
 export class GUI {
 
@@ -90,11 +92,20 @@ export class GUI {
     private readonly letslogicSetApiKeyItem        = document.getElementById("letslogicSetApiKey")        as HTMLDivElement | null
     private readonly letslogicSubmitCurrentItem    = document.getElementById("letslogicSubmitCurrent")    as HTMLDivElement | null
     private readonly letslogicSubmitCollectionItem = document.getElementById("letslogicSubmitCollection") as HTMLDivElement | null
+    private readonly letslogicImportCollectionsItem = document.getElementById("letslogicImportCollections") as HTMLDivElement | null
 
     /** Letslogic API key modal (for clickable link + input) */
     private readonly letslogicApiKeyModal      = document.getElementById("letslogicApiKeyModal")      as HTMLDivElement | null
     private readonly letslogicApiKeyInput      = document.getElementById("letslogicApiKeyInput")      as HTMLInputElement | null
     private readonly letslogicApiKeySaveButton = document.getElementById("letslogicApiKeySaveButton") as HTMLButtonElement | null
+
+    /** Letslogic collections modal */
+    private readonly letslogicCollectionsModal          = document.getElementById("letslogicCollectionsModal")          as HTMLDivElement | null
+    private readonly letslogicCollectionsList           = document.getElementById("letslogicCollectionsList")           as HTMLDivElement | null
+    private readonly letslogicCollectionsStatus         = document.getElementById("letslogicCollectionsStatus")         as HTMLDivElement | null
+    private readonly letslogicFetchCollectionsButton    = document.getElementById("letslogicFetchCollectionsButton")    as HTMLButtonElement | null
+    private readonly letslogicSelectAllCollections      = document.getElementById("letslogicSelectAllCollections")      as HTMLInputElement | null
+    private readonly letslogicImportCollectionsConfirm  = document.getElementById("letslogicImportCollectionsConfirm")  as HTMLButtonElement | null
 
     // ---------------------------------------------------------------------
     // Database menu & stats
@@ -137,6 +148,13 @@ export class GUI {
 
     /** Imported collections keyed by display name (usually file name without extension). */
     private readonly importedCollections = new Map<string, Collection>()
+
+    /**
+     * Metadata of Letslogic collections fetched in the modal, keyed by their Letslogic id.
+     * Used to name imported collections with the actual collection title (and author),
+     * instead of guessing it from the first level title.
+     */
+    private readonly letslogicCollectionsById = new Map<number, LetsLogicLevelCollection>()
 
     // ---------------------------------------------------------------------
     // Solutions/Snapshots list + sidebar UI
@@ -361,6 +379,11 @@ export class GUI {
         this.boardRenderer.adjustCanvasSize()
         this.boardRenderer.adjustNewGraphicSize()
         this.updateCanvas()
+
+        // Load any cached Letslogic collections from local storage and make
+        // them available in the collection selector so users don't need to
+        // re-import on every start.
+        await this.loadCachedLetslogicCollections()
     }
 
     /**
@@ -762,6 +785,25 @@ export class GUI {
         bindClick(this.letslogicSubmitCurrentItem,    Action.submitLetslogicCurrentPuzzleSolutions)
         bindClick(this.letslogicSubmitCollectionItem, Action.submitLetslogicCollectionSolutions)
 
+        // Letslogic: import collections
+        if (this.letslogicImportCollectionsItem) {
+            this.letslogicImportCollectionsItem.addEventListener("click", () => this.openLetslogicCollectionsModal())
+        }
+        if (this.letslogicFetchCollectionsButton) {
+            this.letslogicFetchCollectionsButton.addEventListener("click", () => void this.fetchLetslogicCollections())
+        }
+        if (this.letslogicSelectAllCollections) {
+            this.letslogicSelectAllCollections.addEventListener("change", () => {
+                const checked = this.letslogicSelectAllCollections!.checked
+                if (!this.letslogicCollectionsList) return
+                const inputs = this.letslogicCollectionsList.querySelectorAll<HTMLInputElement>("input[type='checkbox'][data-collection-id]")
+                inputs.forEach(i => i.checked = checked)
+            })
+        }
+        if (this.letslogicImportCollectionsConfirm) {
+            this.letslogicImportCollectionsConfirm.addEventListener("click", () => void this.importSelectedLetslogicCollections())
+        }
+
         // Database menu
         bindClick(this.databaseExportItem, Action.exportDatabase)
 
@@ -892,6 +934,311 @@ export class GUI {
             onShow:   () => { GUI.isModalDialogShown = true },
             onHidden: () => { GUI.isModalDialogShown = false }
         }).modal("show")
+    }
+
+    // ---------------------------------------------------------------------
+    // Letslogic: import collections flow
+    // ---------------------------------------------------------------------
+
+    private openLetslogicCollectionsModal(): void {
+        const key = Settings.letslogicApiKey.trim()
+        if (!key) {
+            // Prompt for API key first
+            this.promptForLetslogicApiKey()
+            return
+        }
+
+        if (!this.letslogicCollectionsModal) return
+        ;($(this.letslogicCollectionsModal) as any).modal({
+            onShow:   () => { GUI.isModalDialogShown = true },
+            onHidden: () => { GUI.isModalDialogShown = false }
+        }).modal("show")
+
+        // initial load
+        void this.fetchLetslogicCollections()
+    }
+
+    private async fetchLetslogicCollections(): Promise<void> {
+        if (!this.letslogicCollectionsList || !this.letslogicCollectionsStatus) return
+
+        const key = Settings.letslogicApiKey.trim()
+        if (!key) {
+            this.setLetslogicCollectionsStatus("Please set your Letslogic API key first.", true)
+            return
+        }
+
+        this.setLetslogicCollectionsStatus("Loading collections…", false)
+        this.letslogicCollectionsList.innerHTML = ""
+
+        try {
+            const client = new LetsLogicClient(key)
+            const collections = await client.getCollections()
+
+            if (!collections || collections.length === 0) {
+                this.setLetslogicCollectionsStatus("No collections returned by Letslogic.", true)
+                return
+            }
+
+            this.setLetslogicCollectionsStatus(`${collections.length} collections loaded. Select and click Import.`, false)
+            // Keep a lookup for later (so we can use the true collection title when importing)
+            this.letslogicCollectionsById.clear()
+            for (const c of collections) {
+                this.letslogicCollectionsById.set(c.id, c)
+            }
+            this.renderLetslogicCollectionsList(collections)
+        } catch (e) {
+            console.error("Failed to load Letslogic collections", e)
+            this.setLetslogicCollectionsStatus("Failed to load collections. Please try again.", true)
+        }
+    }
+
+    private setLetslogicCollectionsStatus(message: string, isError: boolean): void {
+        if (!this.letslogicCollectionsStatus) return
+        this.letslogicCollectionsStatus.style.display = "block"
+        this.letslogicCollectionsStatus.className = `ui small ${isError ? "red" : "info"} message`
+        this.letslogicCollectionsStatus.textContent = message
+    }
+
+    private renderLetslogicCollectionsList(collections: LetsLogicLevelCollection[]): void {
+        if (!this.letslogicCollectionsList) return
+        const list = this.letslogicCollectionsList
+        list.innerHTML = ""
+
+        for (const c of collections) {
+            const item = document.createElement("div")
+            item.className = "item"
+            item.style.cursor = "pointer"
+
+            const checkbox = document.createElement("input")
+            checkbox.type = "checkbox"
+            checkbox.setAttribute("data-collection-id", String(c.id))
+            checkbox.style.marginRight = "8px"
+
+            const content = document.createElement("div")
+            content.className = "content"
+
+            const header = document.createElement("div")
+            header.className = "header"
+            header.textContent = `${c.title} (by ${c.author || "unknown"})`
+
+            const desc = document.createElement("div")
+            desc.className = "description"
+            const levelCount = (c as any).levels ?? (c as any).levelCount ?? 0
+            desc.textContent = `${levelCount} levels${c.description ? " · " + c.description : ""}`
+
+            content.appendChild(header)
+            content.appendChild(desc)
+
+            item.appendChild(checkbox)
+            item.appendChild(content)
+
+            // clicking the row toggles the checkbox
+            item.addEventListener("click", (ev) => {
+                if ((ev.target as HTMLElement).tagName.toLowerCase() !== "input") {
+                    checkbox.checked = !checkbox.checked
+                }
+            })
+
+            list.appendChild(item)
+        }
+    }
+
+    private async importSelectedLetslogicCollections(): Promise<void> {
+        if (!this.letslogicCollectionsList) return
+
+        const key = Settings.letslogicApiKey.trim()
+        if (!key) {
+            this.setStatusText("Please set your Letslogic API key first.")
+            return
+        }
+
+        const checkboxes = Array.from(this.letslogicCollectionsList.querySelectorAll<HTMLInputElement>("input[type='checkbox'][data-collection-id]:checked"))
+        if (checkboxes.length === 0) {
+            this.setStatusText("No Letslogic collections selected.")
+            return
+        }
+
+        if (this.letslogicImportCollectionsConfirm) this.letslogicImportCollectionsConfirm.disabled = true
+        try {
+            const client = new LetsLogicClient(key)
+            const importedNames: string[] = []
+
+            for (let idx = 0; idx < checkboxes.length; idx++) {
+                const cb = checkboxes[idx]
+                const id = Number(cb.getAttribute("data-collection-id"))
+                if (!Number.isFinite(id) || id <= 0) continue
+
+                this.setStatusText(`Downloading Letslogic collection #${id}… (${idx + 1}/${checkboxes.length})`)
+
+                const levels = await client.getLevels(id)
+                if (!levels || levels.length === 0) {
+                    console.warn("Letslogic collection has no levels:", id)
+                    continue
+                }
+
+                // Ensure we overwrite any previously imported collection with the same Letslogic ID
+                this.removeImportedCollectionsByLetslogicId(id)
+
+                const collectionName = this.buildLetslogicCollectionName(levels, id)
+                const puzzles: Puzzle[] = []
+
+                for (let i = 0; i < levels.length; i++) {
+                    const lvl = levels[i]
+                    const boardOrError = Board.createFromString(lvl.map)
+                    if (typeof boardOrError === "string") {
+                        console.warn(`Skipping invalid board in collection #${id}:`, boardOrError)
+                        continue
+                    }
+                    const p = new Puzzle(boardOrError)
+                    p.title = lvl.title || `Puzzle ${i + 1}`
+                    p.author = lvl.author || ""
+                    p.letsLogicID = lvl.id
+                    p.puzzleNumber = i + 1
+                    puzzles.push(p)
+                }
+
+                if (puzzles.length > 0) {
+                    // Prefer author from collection metadata if available, otherwise fall back to level author
+                    const meta = this.letslogicCollectionsById.get(id)
+                    const author = (meta?.author && meta.author.trim().length > 0)
+                        ? meta.author.trim()
+                        : (levels[0]?.author || "")
+                    const coll = new Collection(collectionName, author, puzzles)
+
+                    // Keep in-memory and UI state
+                    this.importedCollections.set(collectionName, coll)
+                    this.ensureCollectionOptionExists(collectionName)
+                    if (!importedNames.includes(collectionName)) importedNames.push(collectionName)
+
+                    // Persist in local storage so it is available on next start
+                    const dto = this.buildLetslogicCollectionDTO(id, coll)
+                    try { await DataStorage.storeLetslogicCollection(id, dto) } catch (e) { console.warn("Failed to cache Letslogic collection", id, e) }
+                }
+            }
+
+            if (importedNames.length > 0) {
+                // select first imported
+                const first = importedNames[0]
+                this.collectionSelector.value = first
+                const importedCollection = this.importedCollections.get(first)!
+                this.setCollectionForPlaying(importedCollection)
+                this.puzzleSelector.selectedIndex = 0
+                this.newPuzzleSelected()
+
+                // close modal
+                if (this.letslogicCollectionsModal) {
+                    ;($(this.letslogicCollectionsModal) as any).modal("hide")
+                }
+
+                this.setStatusText(`Imported ${importedNames.length} Letslogic collection(s).`)
+            } else {
+                this.setStatusText("Nothing was imported from Letslogic.")
+            }
+        } catch (e) {
+            console.error("Failed to import Letslogic collections", e)
+            this.setStatusText("Failed to import collections from Letslogic.")
+        } finally {
+            if (this.letslogicImportCollectionsConfirm) this.letslogicImportCollectionsConfirm.disabled = false
+        }
+    }
+
+    private ensureCollectionOptionExists(name: string): void {
+        const alreadyExists = Array.from(this.collectionSelector.options).some(o => o.value === name)
+        if (!alreadyExists) {
+            const option = document.createElement("option")
+            option.value = name
+            option.text = name
+            this.collectionSelector.add(option)
+        }
+    }
+
+    private buildLetslogicCollectionName(levels: LetsLogicLevel[], id: number): string {
+        // Prefer the actual collection title fetched from Letslogic collections endpoint
+        const meta = this.letslogicCollectionsById.get(id)
+        const titleFromMeta = meta?.title?.trim()
+        if (titleFromMeta && titleFromMeta.length > 0) {
+            return `${titleFromMeta} (Letslogic #${id})`
+        }
+
+        // Fallback: try to derive a base title from first level title (legacy behavior)
+        const derived = levels[0]?.title ? levels[0].title.replace(/\s+\d+\s*$/, "").trim() : "Letslogic Collection"
+        return `${derived} (Letslogic #${id})`
+    }
+
+    /**
+     * Removes all imported collections (in-memory + selector option) that correspond to the given Letslogic id.
+     * This helps to overwrite previously imported versions when re-importing the same collection id.
+     */
+    private removeImportedCollectionsByLetslogicId(id: number): void {
+        const pattern = new RegExp(`\\(Letslogic #${id}\\)(?: \\[[0-9]+\\])?$`) // matches with optional [n] suffix
+
+        // Remove from in-memory map
+        for (const name of Array.from(this.importedCollections.keys())) {
+            if (pattern.test(name)) {
+                this.importedCollections.delete(name)
+            }
+        }
+
+        // Remove matching options from selector
+        const options = Array.from(this.collectionSelector.options)
+        for (const opt of options) {
+            if (pattern.test(opt.value)) {
+                this.collectionSelector.remove(opt.index)
+            }
+        }
+    }
+
+    /** Build a storage DTO from a Collection for caching. */
+    private buildLetslogicCollectionDTO(id: number, coll: Collection): StoredLetslogicCollectionDTO {
+        return {
+            id,
+            title: coll.title,
+            author: coll.author,
+            puzzles: coll.puzzles.map(p => ({
+                boardString: p.board.getBoardAsString(),
+                title: p.title,
+                author: p.author,
+                letsLogicID: p.letsLogicID,
+                puzzleNumber: p.puzzleNumber
+            }))
+        }
+    }
+
+    /** Loads cached Letslogic collections from storage and registers them in the UI. */
+    private async loadCachedLetslogicCollections(): Promise<void> {
+        try {
+            const dtos = await DataStorage.loadAllLetslogicCollections()
+            if (!dtos || dtos.length === 0) return
+
+            for (const dto of dtos) {
+                // Reconstruct puzzles
+                const puzzles: Puzzle[] = []
+                for (const p of dto.puzzles) {
+                    const boardOrError = Board.createFromString(p.boardString)
+                    if (typeof boardOrError === "string") {
+                        console.warn("Skipping invalid cached board in collection", dto.id, boardOrError)
+                        continue
+                    }
+                    const puzzle = new Puzzle(boardOrError)
+                    puzzle.title = p.title
+                    puzzle.author = p.author
+                    puzzle.letsLogicID = p.letsLogicID
+                    puzzle.puzzleNumber = p.puzzleNumber
+                    puzzles.push(puzzle)
+                }
+
+                if (puzzles.length === 0) continue
+
+                const coll = new Collection(dto.title, dto.author, puzzles)
+                // Use dto.title as the selector key
+                if (!this.importedCollections.has(dto.title)) {
+                    this.importedCollections.set(dto.title, coll)
+                    this.ensureCollectionOptionExists(dto.title)
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to load cached Letslogic collections", e)
+        }
     }
 
     /** Shows or hides the snapshot list sidebar (Fomantic sidebar). */

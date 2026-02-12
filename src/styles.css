@@ -308,25 +308,7 @@ label {
     color: #db2828; /* Semantic UI red */
 }
 
-/* ===================================================================== */
-/*  Responsiveness (small layout tweaks)                                 */
-/* ===================================================================== */
-
-@media (max-width: 900px) {
-    /* Stack selectors and game area vertically on smaller screens */
-    #appDiv {
-        flex-direction: column;
-    }
-
-    #appDiv > div:first-child {
-        padding: 16px;
-    }
-
-    #buttonsAndCanvasDIV {
-        margin-left: 16px;
-        margin-top: 8px;
-    }
-}
+/* All mobile-only and responsive styles were removed to keep a desktop-only UI. */
 
 /* ===================================================================== */
 /*  Board rulers (optional coordinate labels)                            */

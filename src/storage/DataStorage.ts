@@ -5,6 +5,23 @@ import { Metrics } from "../Sokoban/domainObjects/Metrics"
 import { Board } from "../board/Board"
 
 /**
+ * DTO for a cached Letslogic collection, stored in localforage.
+ * The collection is identified by its Letslogic collection id.
+ */
+export interface StoredLetslogicCollectionDTO {
+    id: number
+    title: string
+    author: string
+    puzzles: Array<{
+        boardString: string
+        title: string
+        author: string
+        letsLogicID: number
+        puzzleNumber: number
+    }>
+}
+
+/**
  * DTO for a snapshot/solution stored in localforage.
  */
 export interface StoredSnapshotDTO {
@@ -414,5 +431,57 @@ export class DataStorage {
         })
 
         await localforage.setItem(key, existing)
+    }
+
+    // -------------------------------------------------------------------------
+    // Letslogic – cached collections (imported from Letslogic)
+    // -------------------------------------------------------------------------
+
+    // ---- Keys for cached Letslogic collections ----
+    private static readonly LETSLOGIC_COLLECTION_INDEX_KEY = "ll:collections:index"
+    private static letslogicCollectionKey(id: number): string { return `ll:collection:${id}` }
+
+    /** Stores/overwrites a Letslogic collection and keeps the id in the index. */
+    static async storeLetslogicCollection(id: number, dto: StoredLetslogicCollectionDTO): Promise<void> {
+        if (!Number.isFinite(id) || id <= 0) return
+        dto.id = id
+        await localforage.setItem(this.letslogicCollectionKey(id), dto)
+
+        const index = (await localforage.getItem<number[]>(this.LETSLOGIC_COLLECTION_INDEX_KEY)) ?? []
+        if (!index.includes(id)) {
+            index.push(id)
+            await localforage.setItem(this.LETSLOGIC_COLLECTION_INDEX_KEY, index)
+        }
+    }
+
+    /** Loads a single cached Letslogic collection by id. */
+    static async loadLetslogicCollection(id: number): Promise<StoredLetslogicCollectionDTO | null> {
+        if (!Number.isFinite(id) || id <= 0) return null
+        const dto = await localforage.getItem<StoredLetslogicCollectionDTO>(this.letslogicCollectionKey(id))
+        return dto ?? null
+    }
+
+    /** Loads all cached Letslogic collections (by iterating index). */
+    static async loadAllLetslogicCollections(): Promise<StoredLetslogicCollectionDTO[]> {
+        const index = (await localforage.getItem<number[]>(this.LETSLOGIC_COLLECTION_INDEX_KEY)) ?? []
+        const results: StoredLetslogicCollectionDTO[] = []
+        for (const id of index) {
+            const dto = await localforage.getItem<StoredLetslogicCollectionDTO>(this.letslogicCollectionKey(id))
+            if (dto && typeof dto.title === "string" && Array.isArray(dto.puzzles)) {
+                results.push(dto)
+            }
+        }
+        return results
+    }
+
+    /** Deletes a cached Letslogic collection by id and updates the index. */
+    static async deleteLetslogicCollection(id: number): Promise<void> {
+        if (!Number.isFinite(id) || id <= 0) return
+        await localforage.removeItem(this.letslogicCollectionKey(id))
+        const index = (await localforage.getItem<number[]>(this.LETSLOGIC_COLLECTION_INDEX_KEY)) ?? []
+        const next = index.filter(x => x !== id)
+        if (next.length !== index.length) {
+            await localforage.setItem(this.LETSLOGIC_COLLECTION_INDEX_KEY, next)
+        }
     }
 }
