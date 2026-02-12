@@ -1,7 +1,5 @@
 // service-worker.js
 
-// Bump the cache name to invalidate previously cached HTML/CSS that still contained
-// mobile-only UI. This forces clients to fetch the latest desktop-only assets.
 const CACHE_NAME = "sokoban-cache-v2";
 
 const PRECACHE_URLS = [
