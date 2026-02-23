@@ -164,7 +164,6 @@ export class GUI {
     private readonly snapshotList             = document.getElementById("snapshotList")             as HTMLDivElement
     private readonly importLURDStringButton   = document.getElementById("importLURDString")         as HTMLButtonElement
     private readonly saveSnapshotButton       = document.getElementById("saveSnapshotButton")       as HTMLButtonElement
-    private readonly snapshotSidebar          = document.getElementById("snapshotSidebar")          as HTMLDivElement
     private readonly showSnapshotListCheckbox = document.getElementById("showSnapshotListCheckbox") as HTMLInputElement
     private readonly filterSolutionsButton    = document.getElementById("filterSolutionsButton")    as HTMLButtonElement
     private readonly filterSnapshotsButton    = document.getElementById("filterSnapshotsButton")    as HTMLButtonElement
