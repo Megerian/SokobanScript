@@ -485,8 +485,8 @@ export class BoardRenderer {
 
         this.drawSprite(sprite, outputX, outputY)
 
-        if (Settings.showChessboardPatternFlag && this.board.isActive(position)) {
-            this.drawChessboardOverlay(position, outputX, outputY)
+        if (Settings.showCheckerboardPatternFlag && this.board.isActive(position)) {
+            this.drawCheckerboardOverlay(position, outputX, outputY)
         }
     }
 
@@ -525,9 +525,9 @@ export class BoardRenderer {
         const spriteData = this.skin.getSprite(this.board, position, playerDirection)
         this.drawSprite(spriteData, outputX, outputY)
 
-        // Chessboard overlay should be visible on top of the base tile.
-        if (Settings.showChessboardPatternFlag && this.board.isActive(position)) {
-            this.drawChessboardOverlay(position, outputX, outputY)
+        // Checkerboard overlay should be visible on top of the base tile.
+        if (Settings.showCheckerboardPatternFlag && this.board.isActive(position)) {
+            this.drawCheckerboardOverlay(position, outputX, outputY)
         }
 
         // Optional reachability overlay (small circle).
@@ -614,8 +614,8 @@ export class BoardRenderer {
         this.ctx.stroke()
     }
 
-    /** Draws a subtle chessboard overlay for the given tile. */
-    private drawChessboardOverlay(position: number, outputX: number, outputY: number): void {
+    /** Draws a subtle checkerboard overlay for the given tile. */
+    private drawCheckerboardOverlay(position: number, outputX: number, outputY: number): void {
         const { x, y } = this.getXYCoordinatesOf(position)
         const isLight = ((x + y) & 1) === 0
         const overlayColor = isLight
@@ -655,3 +655,4 @@ export class BoardRenderer {
         return cellY * this.board.width + cellX
     }
 }
+

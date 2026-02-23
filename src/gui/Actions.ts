@@ -149,14 +149,14 @@ export const enum Action {
     showAnimationsCheckbox = "showAnimationsCheckbox",
 
     /**
-     * Toggle chessboard pattern rendering for the board.
+     * Toggle checkerboard pattern rendering for the board.
      */
-    toggleChessboardPattern = "toggleChessboardPattern",
+    toggleCheckerboardPattern = "toggleCheckerboardPattern",
 
     /**
-     * Apply chessboard pattern setting from checkbox state.
+     * Apply checkerboard pattern setting from checkbox state.
      */
-    setChessboardPattern = "setChessboardPattern",
+    setCheckerboardPattern = "setCheckerboardPattern",
 
     /**
      * Toggle board ruler visibility (row/column labels).
@@ -243,3 +243,4 @@ export const enum Action {
      */
     howToPlay = "howToPlay",
 }
+

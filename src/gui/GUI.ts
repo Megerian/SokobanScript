@@ -47,7 +47,7 @@ export class GUI {
     private readonly moveAnimationDelayItems           = document.querySelectorAll<HTMLElement>("[data-moveAnimationDelay]")
     private readonly selectedObjectAnimationDelayItems = document.querySelectorAll<HTMLElement>("[data-selectedObjectAnimationDelay]")
     private readonly showAnimationsCheckbox            = document.getElementById("showAnimations") as HTMLInputElement
-    private readonly showChessboardPatternCheckbox     = document.getElementById("showChessboardPattern") as HTMLInputElement
+    private readonly showCheckerboardPatternCheckbox     = document.getElementById("showCheckerboardPattern") as HTMLInputElement
 
     /** Ruler checkbox (View menu) */
     private readonly showRulerCheckbox = document.getElementById("showRuler") as HTMLInputElement | null
@@ -359,7 +359,7 @@ export class GUI {
         )
 
         this.showAnimationsCheckbox.checked = Settings.showAnimationFlag
-        this.showChessboardPatternCheckbox.checked = Settings.showChessboardPatternFlag
+        this.showCheckerboardPatternCheckbox.checked = Settings.showCheckerboardPatternFlag
         this.hideWallsCheckbox.checked      = Settings.hideWallsFlag
         this.soundEnabledCheckbox.checked   = Settings.soundEnabled
         this.backgroundColor.value          = Settings.backgroundColor
@@ -773,7 +773,7 @@ export class GUI {
         bindClick(this.setDropsBackgroundImage,   Action.setDropsBackgroundImage)
 
         bindChange(this.showAnimationsCheckbox, Action.showAnimationsCheckbox)
-        bindChange(this.showChessboardPatternCheckbox, Action.setChessboardPattern)
+        bindChange(this.showCheckerboardPatternCheckbox, Action.setCheckerboardPattern)
 
         if (this.showRulerCheckbox) {
             bindChange(this.showRulerCheckbox, Action.setRuler)
@@ -1626,17 +1626,17 @@ export class GUI {
                 this.updateCanvas()
                 break
 
-            case Action.toggleChessboardPattern:
+            case Action.toggleCheckerboardPattern:
                 {
-                    const newValue = !Settings.showChessboardPatternFlag
-                    Settings.showChessboardPatternFlag = newValue
-                    this.showChessboardPatternCheckbox.checked = newValue
+                    const newValue = !Settings.showCheckerboardPatternFlag
+                    Settings.showCheckerboardPatternFlag = newValue
+                    this.showCheckerboardPatternCheckbox.checked = newValue
                 }
                 this.updateCanvas()
                 break
 
-            case Action.setChessboardPattern:
-                Settings.showChessboardPatternFlag = this.showChessboardPatternCheckbox.checked
+            case Action.setCheckerboardPattern:
+                Settings.showCheckerboardPatternFlag = this.showCheckerboardPatternCheckbox.checked
                 this.updateCanvas()
                 break
 
@@ -1702,3 +1702,4 @@ export class GUI {
         )
     }
 }
+

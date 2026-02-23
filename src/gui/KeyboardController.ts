@@ -109,10 +109,10 @@ export class KeyboardController {
         // -----------------------------------------------------------------
 
         switch (key) {
-            // Toggle chessboard pattern
+            // Toggle checkerboard pattern
             case "o":
             case "O":
-                this.dispatchUiAction(Action.toggleChessboardPattern)
+                this.dispatchUiAction(Action.toggleCheckerboardPattern)
                 event.preventDefault()
                 break
 
@@ -126,7 +126,6 @@ export class KeyboardController {
             // Movement: left
             case "ArrowLeft":
             case "a":
-            case "j":
                 this.dispatchUiAction(Action.moveLeft)
                 event.preventDefault()
                 break
@@ -134,7 +133,6 @@ export class KeyboardController {
             // Movement: up
             case "ArrowUp":
             case "w":
-            case "i":
                 this.dispatchUiAction(Action.moveUp)
                 event.preventDefault()
                 break
@@ -149,7 +147,6 @@ export class KeyboardController {
             // Movement: down
             case "ArrowDown":
             case "s":
-            case "k":
                 this.dispatchUiAction(Action.moveDown)
                 event.preventDefault()
                 break
@@ -213,3 +210,4 @@ export class KeyboardController {
         }
     }
 }
+

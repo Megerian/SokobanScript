@@ -16,7 +16,7 @@ export class Settings {
         moveAnimationDelayMs:                50,
         selectedObjectAnimationsSpeedPercent: 100,
         showAnimationFlag:                   true,
-        showChessboardPatternFlag:           false,
+        showCheckerboardPatternFlag:           false,
         hideWallsFlag:                       false,
         soundEnabled:                        true,
         reachablePositionColor:              "#FFFFFFEF",
@@ -37,7 +37,7 @@ export class Settings {
     private static moveAnimationDelayMs_ = 50                  // Animation delay for moving the player/box in milliseconds
     private static selectedObjectAnimationsSpeedPercent_ = 100 // Animation speed for selected player/box in % of default speed
     private static showAnimationFlag_ = true                   // Whether animations for selected objects are shown
-    private static showChessboardPatternFlag_ = false          // Whether to draw the board with a chessboard pattern
+    private static showCheckerboardPatternFlag_ = false          // Whether to draw the board with a checkerboard pattern
     private static hideWallsFlag_ = false                      // Whether walls are drawn
     private static soundEnabled_ = true                        // Whether sounds are played
     private static reachablePositionColor_ = "#FFFFFFEF"       // Color used to draw reachable positions
@@ -121,14 +121,14 @@ export class Settings {
         localforage.setItem("showAnimationFlag", showAnimationFlag).catch(err => console.log(err))
     }
 
-    /** Whether the board is drawn with a chessboard pattern */
-    static get showChessboardPatternFlag(): boolean {
-        return this.showChessboardPatternFlag_
+    /** Whether the board is drawn with a checkerboard pattern */
+    static get showCheckerboardPatternFlag(): boolean {
+        return this.showCheckerboardPatternFlag_
     }
 
-    static set showChessboardPatternFlag(showChessboardPatternFlag: boolean) {
-        Settings.showChessboardPatternFlag_ = showChessboardPatternFlag
-        localforage.setItem("showChessboardPatternFlag", showChessboardPatternFlag).catch(err => console.log(err))
+    static set showCheckerboardPatternFlag(showCheckerboardPatternFlag: boolean) {
+        Settings.showCheckerboardPatternFlag_ = showCheckerboardPatternFlag
+        localforage.setItem("showCheckerboardPatternFlag", showCheckerboardPatternFlag).catch(err => console.log(err))
     }
 
     // ---------------------------------------------------------------------
@@ -276,9 +276,9 @@ export class Settings {
             (await localforage.getItem<boolean>("showAnimationFlag")) ??
             Settings.DEFAULTS.showAnimationFlag
 
-        Settings.showChessboardPatternFlag_ =
-            (await localforage.getItem<boolean>("showChessboardPatternFlag")) ??
-            Settings.DEFAULTS.showChessboardPatternFlag
+        Settings.showCheckerboardPatternFlag_ =
+            (await localforage.getItem<boolean>("showCheckerboardPatternFlag")) ??
+            Settings.DEFAULTS.showCheckerboardPatternFlag
 
         Settings.hideWallsFlag_ =
             (await localforage.getItem<boolean>("hideWallsFlag")) ??
@@ -324,3 +324,4 @@ export class Settings {
             Settings.DEFAULTS.letslogicApiKey
     }
 }
+
