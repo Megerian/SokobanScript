@@ -163,6 +163,11 @@ export const enum Action {
      */
     toggleRuler = "toggleRuler",
 
+    /**
+     * Apply ruler visibility setting from checkbox state.
+     */
+    setRuler = "setRuler",
+
     // -------------------------------------------------------------
     // Clipboard / import / export (moves and puzzles)
     // -------------------------------------------------------------

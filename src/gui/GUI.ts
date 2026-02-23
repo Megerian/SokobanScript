@@ -777,7 +777,7 @@ export class GUI {
         bindChange(this.showChessboardPatternCheckbox, Action.setChessboardPattern)
 
         if (this.showRulerCheckbox) {
-            bindChange(this.showRulerCheckbox, Action.toggleRuler)
+            bindChange(this.showRulerCheckbox, Action.setRuler)
         }
 
         bindClick(this.copyMovesAsString,         Action.copyMovesAsString)
@@ -1590,6 +1590,15 @@ export class GUI {
                 break
 
             case Action.toggleRuler:
+                if (this.showRulerCheckbox) {
+                    const newValue = !Settings.showRulerFlag
+                    Settings.showRulerFlag = newValue
+                    this.showRulerCheckbox.checked = newValue
+                }
+                this.boardRulerView.updateLayout()
+                break
+
+            case Action.setRuler:
                 if (this.showRulerCheckbox) {
                     Settings.showRulerFlag = this.showRulerCheckbox.checked
                 }

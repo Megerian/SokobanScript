@@ -120,6 +120,13 @@ export class KeyboardController {
                 event.preventDefault()
                 break
 
+            // Toggle ruler
+            case "u":
+            case "U":
+                this.dispatchUiAction(Action.toggleRuler)
+                event.preventDefault()
+                break
+
             // Movement: left
             case "ArrowLeft":
             case "a":
