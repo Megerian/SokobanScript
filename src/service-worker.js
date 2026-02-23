@@ -1,6 +1,7 @@
 // service-worker.js
 
-const CACHE_NAME = "sokoban-cache-v2";
+// Bump this to force clients to pick up new HTML/CSS/JS without hard reload
+const CACHE_NAME = "sokoban-cache-v3";
 
 const PRECACHE_URLS = [
     "/",

@@ -243,7 +243,7 @@ export class Board {
         const lines = boardString
             .replace(/\r/g, "")
             .split("\n")
-            .filter(PuzzleFormat.isValidBoardRow)   // statt .filter(row => row.includes("#"))
+            .filter(PuzzleFormat.isValidBoardRow)
         const height = lines.length
 
         const width = lines.map(line => line.length)

@@ -8,12 +8,12 @@
 // The surrounding GUI / controller passes in all dynamic state
 // via method parameters (SelectionState, playerDirection, ...).
 
-import { Board, REACHABLE_BOX, REACHABLE_PLAYER } from "../board/Board"
-import { CommonSkinFormatBase, SpriteData } from "../skins/commonSkinFormat/CommonSkinFormatBase"
-import { XSB_BACKGROUND, XSB_WALL } from "../Sokoban/PuzzleFormat"
-import { Settings } from "../app/Settings"
-import { Utilities } from "../utilities/Utilities"
-import { DIRECTION, UP } from "../Sokoban/Directions"
+import {Board, REACHABLE_BOX, REACHABLE_PLAYER} from "../board/Board"
+import {CommonSkinFormatBase, SpriteData} from "../skins/commonSkinFormat/CommonSkinFormatBase"
+import {XSB_BACKGROUND, XSB_WALL} from "../Sokoban/PuzzleFormat"
+import {Settings} from "../app/Settings"
+import {Utilities} from "../utilities/Utilities"
+import {DIRECTION, UP} from "../Sokoban/Directions"
 
 /**
  * Special value indicating that no box is currently selected.
@@ -166,8 +166,7 @@ export class BoardRenderer {
             : +Settings.graphicSize  // fixed size from settings
 
         // Final size: never larger than what actually fits into the canvas
-        const newGraphicSize = Math.min(requestedSize, maxSizeByWindow)
-        this.graphicDisplaySize = newGraphicSize
+        this.graphicDisplaySize = Math.min(requestedSize, maxSizeByWindow)
     }
 
     /**

@@ -17,11 +17,27 @@ body {
 }
 
 /* Small key hint for menu items */
+.ui.dropdown .menu > .item.has-shortcut-hint {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 8px;
+    padding-right: 1.2em;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ui.dropdown .menu > .item.has-shortcut-hint .ui.checkbox {
+    min-width: 0; /* allow text to wrap/shrink within grid */
+}
+
 .shortcut-hint {
-    float: right;
     opacity: 0.6;
     font-size: 0.8em;
-    margin-left: 8px;
+    min-width: 1.5em;
+    text-align: right;
+    justify-self: end;
+    padding-left: 8px;
 }
 
 /* ===================================================================== */

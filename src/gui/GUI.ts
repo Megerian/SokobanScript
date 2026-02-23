@@ -1177,7 +1177,7 @@ export class GUI {
      * This helps to overwrite previously imported versions when re-importing the same collection id.
      */
     private removeImportedCollectionsByLetslogicId(id: number): void {
-        const pattern = new RegExp(`\\(Letslogic #${id}\\)(?: \\[[0-9]+\\])?$`) // matches with optional [n] suffix
+        const pattern = new RegExp(`\(Letslogic #${id}\)(?: \[[0-9]+])?$`) // matches with optional [n] suffix
 
         // Remove from in-memory map
         for (const name of Array.from(this.importedCollections.keys())) {

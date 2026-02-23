@@ -62,11 +62,7 @@ export class KeyboardController {
             return true
         }
 
-        if (target.isContentEditable) {
-            return true
-        }
-
-        return false
+        return target.isContentEditable;
     }
 
     /**
@@ -121,8 +117,8 @@ export class KeyboardController {
                 break
 
             // Toggle ruler
-            case "u":
-            case "U":
+            case "l":
+            case "L":
                 this.dispatchUiAction(Action.toggleRuler)
                 event.preventDefault()
                 break
@@ -167,6 +163,8 @@ export class KeyboardController {
 
             // Undo one move
             case "z":
+            case "u":
+            case "U":
                 this.dispatchUiAction(Action.undo)
                 event.preventDefault()
                 break

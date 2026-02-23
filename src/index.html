@@ -123,7 +123,7 @@
 
                 <div class="menu">
 
-                    <!-- View als Untermenü innerhalb von Settings -->
+                    <!-- View as submenu within Settings -->
                     <div class="ui dropdown item">
                         <i class="eye icon"></i> View <i class="dropdown icon"></i>
                         <div class="menu">
@@ -284,23 +284,23 @@
                             </div>
 
                             <!-- Chessboard pattern -->
-                            <div class="item">
+                            <div class="item has-shortcut-hint">
                                 <i class="th icon"></i>
                                 <div class="ui checkbox">
                                     <input type="checkbox" id="showChessboardPattern">
-                                    <label for="showChessboardPattern">Show chessboard pattern</label>
+                                    <label for="showChessboardPattern">Chessboard pattern</label>
                                 </div>
                                 <span class="shortcut-hint">O</span>
                             </div>
 
                             <!-- Ruler toggle -->
-                            <div class="item">
+                            <div class="item has-shortcut-hint">
                                 <i class="ruler horizontal icon"></i>
                                 <div class="ui checkbox">
                                     <input type="checkbox" id="showRuler">
-                                    <label for="showRuler">Show ruler (A/B/C, 1/2/3)</label>
+                                    <label for="showRuler">Show ruler</label>
                                 </div>
-                                <span class="shortcut-hint">U</span>
+                                <span class="shortcut-hint">L</span>
                             </div>
 
                         </div> <!-- /View .menu -->
@@ -552,10 +552,10 @@
             <div id="canvasDIV">
 
                 <div id="boardWithRulers">
-                    <!-- oberer Ruler (Spalten A, B, C, …) -->
+                    <!-- top ruler (columns A, B, C, …) -->
                     <div id="boardRulerTop"></div>
 
-                    <!-- linker Ruler (Zeilen 1, 2, 3, …) + Canvas -->
+                    <!-- left ruler (rows 1, 2, 3, …) + Canvas -->
                     <div id="boardRulerLeftAndCanvas">
                         <div id="boardRulerLeft"></div>
                         <canvas id="canvas"></canvas>
