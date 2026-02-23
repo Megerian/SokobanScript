@@ -113,6 +113,13 @@ export class KeyboardController {
         // -----------------------------------------------------------------
 
         switch (key) {
+            // Toggle chessboard pattern
+            case "o":
+            case "O":
+                this.dispatchUiAction(Action.toggleChessboardPattern)
+                event.preventDefault()
+                break
+
             // Movement: left
             case "ArrowLeft":
             case "a":

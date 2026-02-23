@@ -16,6 +16,7 @@ export class Settings {
         moveAnimationDelayMs:                50,
         selectedObjectAnimationsSpeedPercent: 100,
         showAnimationFlag:                   true,
+        showChessboardPatternFlag:           false,
         hideWallsFlag:                       false,
         soundEnabled:                        true,
         reachablePositionColor:              "#FFFFFFEF",
@@ -36,6 +37,7 @@ export class Settings {
     private static moveAnimationDelayMs_ = 50                  // Animation delay for moving the player/box in milliseconds
     private static selectedObjectAnimationsSpeedPercent_ = 100 // Animation speed for selected player/box in % of default speed
     private static showAnimationFlag_ = true                   // Whether animations for selected objects are shown
+    private static showChessboardPatternFlag_ = false          // Whether to draw the board with a chessboard pattern
     private static hideWallsFlag_ = false                      // Whether walls are drawn
     private static soundEnabled_ = true                        // Whether sounds are played
     private static reachablePositionColor_ = "#FFFFFFEF"       // Color used to draw reachable positions
@@ -117,6 +119,16 @@ export class Settings {
     static set showAnimationFlag(showAnimationFlag: boolean) {
         Settings.showAnimationFlag_ = showAnimationFlag
         localforage.setItem("showAnimationFlag", showAnimationFlag).catch(err => console.log(err))
+    }
+
+    /** Whether the board is drawn with a chessboard pattern */
+    static get showChessboardPatternFlag(): boolean {
+        return this.showChessboardPatternFlag_
+    }
+
+    static set showChessboardPatternFlag(showChessboardPatternFlag: boolean) {
+        Settings.showChessboardPatternFlag_ = showChessboardPatternFlag
+        localforage.setItem("showChessboardPatternFlag", showChessboardPatternFlag).catch(err => console.log(err))
     }
 
     // ---------------------------------------------------------------------
@@ -263,6 +275,10 @@ export class Settings {
         Settings.showAnimationFlag_ =
             (await localforage.getItem<boolean>("showAnimationFlag")) ??
             Settings.DEFAULTS.showAnimationFlag
+
+        Settings.showChessboardPatternFlag_ =
+            (await localforage.getItem<boolean>("showChessboardPatternFlag")) ??
+            Settings.DEFAULTS.showChessboardPatternFlag
 
         Settings.hideWallsFlag_ =
             (await localforage.getItem<boolean>("hideWallsFlag")) ??

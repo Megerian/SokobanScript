@@ -485,6 +485,10 @@ export class BoardRenderer {
         }
 
         this.drawSprite(sprite, outputX, outputY)
+
+        if (Settings.showChessboardPatternFlag && this.board.isActive(position)) {
+            this.drawChessboardOverlay(position, outputX, outputY)
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -521,6 +525,11 @@ export class BoardRenderer {
         // Draw the main sprite at this position (walls, goals, boxes, player, ...).
         const spriteData = this.skin.getSprite(this.board, position, playerDirection)
         this.drawSprite(spriteData, outputX, outputY)
+
+        // Chessboard overlay should be visible on top of the base tile.
+        if (Settings.showChessboardPatternFlag && this.board.isActive(position)) {
+            this.drawChessboardOverlay(position, outputX, outputY)
+        }
 
         // Optional reachability overlay (small circle).
         const reachable = this.board.reachableMarker[position]
@@ -604,6 +613,18 @@ export class BoardRenderer {
         this.ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI)
         this.ctx.strokeStyle = "rgba(0, 0, 0, 0.7)"
         this.ctx.stroke()
+    }
+
+    /** Draws a subtle chessboard overlay for the given tile. */
+    private drawChessboardOverlay(position: number, outputX: number, outputY: number): void {
+        const { x, y } = this.getXYCoordinatesOf(position)
+        const isLight = ((x + y) & 1) === 0
+        const overlayColor = isLight
+            ? "rgba(255, 255, 255, 0.18)"
+            : "rgba(0, 0, 0, 0.12)"
+
+        this.ctx.fillStyle = overlayColor
+        this.ctx.fillRect(outputX, outputY, this.graphicDisplaySize, this.graphicDisplaySize)
     }
 
     // ---------------------------------------------------------------------
