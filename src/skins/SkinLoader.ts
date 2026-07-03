@@ -1,12 +1,12 @@
-import {CommonSkinFormatBase} from "./commonSkinFormat/CommonSkinFormatBase";
-import {AntiqueDeskSkin} from "./commonSkinFormat/AntiqueDeskSkin";
-import {AntiqueDesk3Skin} from "./commonSkinFormat/AntiqueDesk3Skin";
-import {NightShift3Skin} from "./commonSkinFormat/NighShift3Skin";
-import {HeavyMetal3Skin} from "./commonSkinFormat/HeavyMetal3Skin";
-import {SokoGemsSkin} from "./commonSkinFormat/SokoGemsSkin";
-import {KSokobanSkin} from "./commonSkinFormat/KSokobanSkin";
-import {KSokoban2Skin} from "./commonSkinFormat/KSokoban2Skin";
-import {KenBriSkin} from "./commonSkinFormat/KenBriSkin";
+import { type CommonSkinFormatBase, type SKIN_NAME } from "./commonSkinFormat/CommonSkinFormatBase";
+import { AntiqueDeskSkin } from "./commonSkinFormat/AntiqueDeskSkin";
+import { AntiqueDesk3Skin } from "./commonSkinFormat/AntiqueDesk3Skin";
+import { NightShift3Skin } from "./commonSkinFormat/NighShift3Skin";
+import { HeavyMetal3Skin } from "./commonSkinFormat/HeavyMetal3Skin";
+import { SokoGemsSkin } from "./commonSkinFormat/SokoGemsSkin";
+import { KSokobanSkin } from "./commonSkinFormat/KSokobanSkin";
+import { KSokoban2Skin } from "./commonSkinFormat/KSokoban2Skin";
+import { KenBriSkin } from "./commonSkinFormat/KenBriSkin";
 
 export class SkinLoader {
 
@@ -14,9 +14,9 @@ export class SkinLoader {
      * Returns the `Skin` for the passed skinName.
      * @param skinName  the name of the skin to be returned
      */
-    static async loadSkinByName(skinName: string): Promise<CommonSkinFormatBase> {
+    static async loadSkinByName(skinName: SKIN_NAME | string): Promise<CommonSkinFormatBase> {
 
-        let skin: CommonSkinFormatBase = new NightShift3Skin() // default skin
+        let skin: CommonSkinFormatBase
 
         switch(skinName) {
 
@@ -42,6 +42,10 @@ export class SkinLoader {
                 break
 
             case "KenBri": skin = new KenBriSkin()
+                break
+
+            default:
+                skin = new NightShift3Skin()
                 break
         }
 

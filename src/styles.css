@@ -1,5 +1,5 @@
 /* ===================================================================== */
-/*  Global base styles                                                   */
+/* Global base styles                                                   */
 /* ===================================================================== */
 
 * {
@@ -14,6 +14,8 @@ textarea {
 body {
     background-color: #EBEDEF !important;
     overflow: hidden;
+    /* Prevents pull-to-refresh artifacts on mobile browsers */
+    overscroll-behavior: none;
 }
 
 /* Small key hint for menu items */
@@ -41,7 +43,7 @@ body {
 }
 
 /* ===================================================================== */
-/*  Main layout                                                          */
+/* Main layout                                                          */
 /* ===================================================================== */
 
 #appDiv {
@@ -108,7 +110,7 @@ body {
 }
 
 /* ===================================================================== */
-/*  "Puzzle solved!" overlay                                             */
+/* "Puzzle solved!" overlay                                             */
 /* ===================================================================== */
 
 #puzzleSolvedDiv {
@@ -118,6 +120,8 @@ body {
     transform: translate(-50%, -50%);
     z-index: 20;
     pointer-events: none;
+    /* Forces hardware acceleration */
+    will-change: transform;
 }
 
 #puzzleSolvedDiv .ui.dimmer.dot {
@@ -137,7 +141,7 @@ body {
 }
 
 /* ===================================================================== */
-/*  Left selector area                                                   */
+/* Left selector area                                                   */
 /* ===================================================================== */
 
 /* Cards for collection & puzzle selectors */
@@ -152,7 +156,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Snapshot / Solution sidebar                                          */
+/* Snapshot / Solution sidebar                                          */
 /* ===================================================================== */
 
 /* Sidebar container */
@@ -195,7 +199,6 @@ label {
 #snapshotList {
     padding: 8px 0 0 0;
     margin-top: 8px;
-
     flex: 0 1 auto;
 
     /* Maximum vertical height of the list */
@@ -204,6 +207,8 @@ label {
     /* Scroll the list when there are many items */
     min-height: 0;
     overflow-y: auto;
+    /* Isolates layout calculations to optimize rendering performance */
+    contain: content;
 }
 
 /* Generic spacing for list items */
@@ -230,7 +235,7 @@ label {
 /* Hover effect on list items */
 #snapshotList .item.solution:hover,
 #snapshotList .item.snapshot:hover {
-    background-color: #E5E9F5 !important;
+    filter: brightness(95%);
     cursor: pointer;
 }
 
@@ -245,7 +250,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Delete icon inside snapshot/solution items                           */
+/* Delete icon inside snapshot/solution items                           */
 /* ===================================================================== */
 
 /* Always show the red X delete icon */
@@ -273,7 +278,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Sidebar action buttons (Save snapshot, Import, Delete mode)          */
+/* Sidebar action buttons (Save snapshot, Import, Delete mode)          */
 /* ===================================================================== */
 
 /* The three action buttons at the bottom of the sidebar */
@@ -286,7 +291,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Snapshot/Solution context menu                                       */
+/* Snapshot/Solution context menu                                       */
 /* ===================================================================== */
 
 .custom-context-menu {
@@ -303,7 +308,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Toast / Message positioning (Fomantic UI toast)                      */
+/* Toast / Message positioning (Fomantic UI toast)                      */
 /* ===================================================================== */
 
 /* Fine-tune position of bottom-center toasts if needed */
@@ -312,7 +317,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Letslogic solution submission                                        */
+/* Letslogic solution submission                                        */
 /* ===================================================================== */
 
 /* Letslogic progress log lines */
@@ -333,7 +338,7 @@ label {
 }
 
 /* ===================================================================== */
-/*  Board rulers (optional coordinate labels)                            */
+/* Board rulers (optional coordinate labels)                            */
 /* ===================================================================== */
 
 /* Wrapper around rulers + canvas */
@@ -380,6 +385,9 @@ label {
     color: rgba(0, 0, 0, 0.9);
     padding: 0 4px;     /* horizontal padding only */
     line-height: 1;     /* important so font metrics do not shift text */
+    /* Prevents accidental text selection during board drags */
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* Highlight for hovered row/column */
@@ -393,8 +401,6 @@ label {
 .board-ruler-hidden {
     display: none !important;
 }
-
-
 
 /* Animation for newly inserted snapshot/solution */
 .snapshot-just-added {

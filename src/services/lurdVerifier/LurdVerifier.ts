@@ -10,13 +10,15 @@
  *   is null     -> ...       "invalid lurd for puzzle
  * }
  */
-import {Board} from "../../board/Board"
-import {Snapshot} from "../../Sokoban/domainObjects/Snapshot"
-import {LURD_CHARS} from "../../Sokoban/PuzzleFormat"
-import {NONE} from "../../app/SokobanApp"
-import {DIRECTION, Directions} from "../../Sokoban/Directions"
-import {Metrics} from "../../Sokoban/domainObjects/Metrics"
-import {Solution} from "../../Sokoban/domainObjects/Solution"
+import { Board } from "../../board/Board"
+import { Snapshot } from "../../Sokoban/domainObjects/Snapshot"
+import { LURD_CHARS } from "../../Sokoban/PuzzleFormat"
+import { NONE } from "../../app/SokobanApp"
+import { type DIRECTION, Directions } from "../../Sokoban/Directions"
+import { Metrics } from "../../Sokoban/domainObjects/Metrics"
+import { Solution } from "../../Sokoban/domainObjects/Solution"
+
+const VALID_LURD_SET = new Set<string>([...LURD_CHARS, '*'])
 
 export class LURDVerifier {
 
@@ -40,8 +42,8 @@ export class LURDVerifier {
      * The returned [Snapshot] contains the validated and corrected LURD string.
      * That LURD string is corrected in the following way:
      * <ol>
-     *  <li> moves are represented by lower case letters
-     *  <li> pushes are represented by upper case letters
+     * <li> moves are represented by lower case letters
+     * <li> pushes are represented by upper case letters
      * </ol>
      * If it is a [Solution] then all unnecessary additional trailing moves are pruned
      * so the LURD string ends as soon as the puzzle is solved.
@@ -59,10 +61,10 @@ export class LURDVerifier {
      * Example usage:
      * const snapshot = new LURDVerifier(board).verifyLURD("ldurldurld")
      *
-     * when(snapshot) {
-     *   is Solution -> ...       "it's a solution for the puzzle
-     *   is Snapshot -> ...       "it's snapshot for the puzzle
-     *   else        -> ...       "invalid lurd for puzzle
+     * if (snapshot instanceof Solution) {
+     * // it's a solution for the puzzle
+     * } else if (snapshot instanceof Snapshot) {
+     * // it's snapshot for the puzzle
      * }
      */
     verifyLURD(lurdString: string): Snapshot | null {
@@ -72,96 +74,101 @@ export class LURDVerifier {
         return null
     }
 
-     private doVerifyLURD(lurdString: string): Snapshot | null {
+    private doVerifyLURD(lurdString: string): Snapshot | null {
 
-         const board = this.originalBoard.clone()
-         let metrics = new Metrics()             // Metrics of the snapshot
+        const board = this.originalBoard.clone()
+        let metrics = new Metrics()             // Metrics of the snapshot
 
-         let metricsDoneMoves = metrics      // Metrics of a snapshot until the "*" character is found
+        let metricsDoneMoves = metrics      // Metrics of a snapshot until the "*" character is found
 
-         let lastPushedBoxPosition = NONE // initialized to impossible value
-         let lastMoveDirection = NONE      // initialized to impossible value
-         let lastMovementWasMove = true
-         let validatedLURD = ""                // The verified and corrected lurd string
+        let lastPushedBoxPosition = NONE // initialized to impossible value
+        let lastMoveDirection = NONE      // initialized to impossible value
+        let lastMovementWasMove = true
+        const validatedLURD: string[] = []                // The verified and corrected lurd string
+        let hasMarker = false
 
-         const updateMetricsForAPush = (pushDirection: number) => {
-             metrics.moveCount++
-             metrics.pushCount++
+        const updateMetricsForAPush = (pushDirection: number, currentBoxPos: number) => {
+            metrics.moveCount++
+            metrics.pushCount++
 
-             const anotherThanPreviousBoxHasBeenPushed = lastPushedBoxPosition == NONE || board.isBox(lastPushedBoxPosition)
+            const anotherThanPreviousBoxHasBeenPushed = lastPushedBoxPosition == NONE || currentBoxPos !== lastPushedBoxPosition
 
-             if (anotherThanPreviousBoxHasBeenPushed || lastMovementWasMove)
-                 metrics.boxLineCount++
+            if (anotherThanPreviousBoxHasBeenPushed || lastMovementWasMove)
+                metrics.boxLineCount++
 
-             if (anotherThanPreviousBoxHasBeenPushed)
-                 metrics.boxChangeCount++
+            if (anotherThanPreviousBoxHasBeenPushed)
+                metrics.boxChangeCount++
 
-             if (lastMovementWasMove)
-                 metrics.pushingSessionCount++
+            if (lastMovementWasMove)
+                metrics.pushingSessionCount++
 
-             if (pushDirection != lastMoveDirection)
-                 metrics.playerLineCount++
-         }
-
-
-         const updateMetricsForAMove = (moveDirection: number) => {
-             metrics.moveCount++
-
-             if (moveDirection != lastMoveDirection)
-                 metrics.playerLineCount++
-         }
-
-         const createSnapshot = () =>
-            validatedLURD.indexOf("*") == -1 ? new Solution(validatedLURD, metrics) :
-                                               new Snapshot(validatedLURD, metricsDoneMoves)
+            if (pushDirection != lastMoveDirection)
+                metrics.playerLineCount++
+        }
 
 
-         for (const lurdChar of lurdString) {
+        const updateMetricsForAMove = (moveDirection: number) => {
+            metrics.moveCount++
 
-             if (lurdChar == '*') {           // Keep the position marker
-                 validatedLURD += '*'         // (see: Snapshot class)
-                 metricsDoneMoves = metrics.clone()
-                 continue
-             }
+            if (moveDirection != lastMoveDirection)
+                metrics.playerLineCount++
+        }
 
-             const direction = Directions.getDirectionFromLURDChar(lurdChar)
+        const createSnapshot = () => {
+            const finalString = validatedLURD.join("")
+            return !hasMarker ? new Solution(finalString, metrics) :
+                new Snapshot(finalString, metricsDoneMoves)
+        }
 
-             const newPlayerPosition = board.getNeighborPosition(board.playerPosition, direction)
-             const newBoxPosition = board.getNeighborPosition(newPlayerPosition, direction)
 
-             if (board.isBox(newPlayerPosition)) {       // move including a push
+        for (const lurdChar of lurdString) {
 
-                 if (!LURDVerifier.movePlayerToDirection(board, direction))
-                     return null
+            if (lurdChar == '*') {           // Keep the position marker
+                validatedLURD.push('*')         // (see: Snapshot class)
+                metricsDoneMoves = metrics.clone()
+                hasMarker = true
+                continue
+            }
 
-                 validatedLURD += Directions.getPushCharForDirection(direction)
+            const direction = Directions.getDirectionFromLURDChar(lurdChar)
 
-                 updateMetricsForAPush(direction)
+            const newPlayerPosition = board.getNeighborPosition(board.playerPosition, direction)
+            const newBoxPosition = board.getNeighborPosition(newPlayerPosition, direction)
 
-                 lastPushedBoxPosition = newBoxPosition
-                 lastMovementWasMove = false
+            if (board.isBox(newPlayerPosition)) {       // move including a push
 
-                 if (board.isSolved()) {
-                     return createSnapshot()
-                 }
-             } else {                                    // move without a push
+                if (!LURDVerifier.movePlayerToDirection(board, direction))
+                    return null
 
-                 if (!LURDVerifier.movePlayerToDirection(board, direction)) {
-                     return null
-                 }
+                validatedLURD.push(Directions.getPushCharForDirection(direction))
 
-                 validatedLURD += Directions.getMoveCharForDirection(direction)
+                updateMetricsForAPush(direction, newPlayerPosition)
 
-                 updateMetricsForAMove(direction)
+                lastPushedBoxPosition = newBoxPosition
+                lastMovementWasMove = false
 
-                 lastMovementWasMove = true
-             }
+                if (board.isSolved()) {
+                    return createSnapshot()
+                }
+            } else {                                    // move without a push
 
-             lastMoveDirection = direction
-         }
+                if (!LURDVerifier.movePlayerToDirection(board, direction)) {
+                    return null
+                }
 
-         return new Snapshot(validatedLURD, metricsDoneMoves)
-     }
+                validatedLURD.push(Directions.getMoveCharForDirection(direction))
+
+                updateMetricsForAMove(direction)
+
+                lastMovementWasMove = true
+            }
+
+            lastMoveDirection = direction
+        }
+
+        const finalString = validatedLURD.join("")
+        return new Snapshot(finalString, metricsDoneMoves)
+    }
 
 
     private static movePlayerToDirection(board: Board, direction: DIRECTION): boolean {
@@ -183,12 +190,16 @@ export class LURDVerifier {
     }
 
     private isValidSnapshotLURD(lurdString: string): boolean {
+        if (lurdString.length === 0) {
+            return false
+        }
 
-        const isInvalidSnapshotChar = (char: string) => LURD_CHARS.indexOf(char) == -1  && char != '*'
+        for (const char of lurdString) {
+            if (!VALID_LURD_SET.has(char)) {
+                return false
+            }
+        }
 
-        const chars = lurdString.split('')
-        const invalidCharCount = chars.filter(isInvalidSnapshotChar).length
-
-        return invalidCharCount == 0 && lurdString.length > 0
+        return true
     }
 }

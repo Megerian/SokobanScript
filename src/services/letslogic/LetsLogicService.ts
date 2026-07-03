@@ -1,9 +1,9 @@
-import { Puzzle } from "../../Sokoban/domainObjects/Puzzle"
-import { Collection } from "../../Sokoban/domainObjects/Collection"
+import { type Puzzle } from "../../Sokoban/domainObjects/Puzzle"
+import { type Collection } from "../../Sokoban/domainObjects/Collection"
 import { LetsLogicClient } from "./LetsLogicClient"
 import { Settings } from "../../app/Settings"
 import { Snapshot } from "../../Sokoban/domainObjects/Snapshot"
-import { Solution } from "../../Sokoban/domainObjects/Solution"
+import { type Solution } from "../../Sokoban/domainObjects/Solution"
 import { DataStorage } from "../../storage/DataStorage"
 import { Messages } from "../../gui/Messages"
 
@@ -34,12 +34,12 @@ export interface LetslogicProgressCallbacks {
 
 /**
  * Encapsulates all Letslogic-related functionality:
- *  - reading the API key from Settings
- *  - creating and caching the LetsLogicClient
- *  - determining "best" solutions (by moves / pushes)
- *  - submitting solutions of a single puzzle or a whole collection
- *  - recording submitted solutions in DataStorage
- *  - user feedback via Messages (fallback) or progress callbacks (preferred)
+ * - reading the API key from Settings
+ * - creating and caching the LetsLogicClient
+ * - determining "best" solutions (by moves / pushes)
+ * - submitting solutions of a single puzzle or a whole collection
+ * - recording submitted solutions in DataStorage
+ * - user feedback via Messages (fallback) or progress callbacks (preferred)
  *
  * The actual HTTP requests are performed by LetsLogicClient, which now talks
  * directly to the Letslogic HTTPS API (no PHP proxy required anymore).
@@ -117,16 +117,16 @@ export class LetslogicService {
      * taking into account previously submitted solutions for the current API key and Letslogic ID.
      *
      * The candidate set is:
-     *  - best solution by moves
-     *  - best solution by pushes
+     * - best solution by moves
+     * - best solution by pushes
      * (if they are different LURD strings they are treated as two candidates)
      *
      * A candidate is only submitted if it improves upon the best already submitted
      * solution (by moves and/or pushes) for the same puzzle and API key.
      *
      * Optional progress callbacks can be used to visualize what is happening:
-     *  - progress.appendLine(...) is called for detailed log messages
-     *  - progress.setStatus(...) may be updated by the caller, typically per puzzle
+     * - progress.appendLine(...) is called for detailed log messages
+     * - progress.setStatus(...) may be updated by the caller, typically per puzzle
      */
     private async submitBestSolutionsForPuzzle(
         client: LetsLogicClient,
@@ -160,11 +160,17 @@ export class LetslogicService {
         let bestByMove: Solution | null = null
 
         if (solutions.length > 0) {
-            const sortedByPush = [...solutions].sort(Snapshot.compareByPushQuality)
-            const sortedByMove = [...solutions].sort(Snapshot.compareByMoveQuality)
-
-            bestByPush = sortedByPush[0]
-            bestByMove = sortedByMove[0]
+            bestByPush = solutions[0]
+            bestByMove = solutions[0]
+            for (let i = 1; i < solutions.length; i++) {
+                const sol = solutions[i]
+                if (Snapshot.compareByPushQuality(sol, bestByPush) < 0) {
+                    bestByPush = sol
+                }
+                if (Snapshot.compareByMoveQuality(sol, bestByMove) < 0) {
+                    bestByMove = sol
+                }
+            }
         }
 
         this.debug("Best solutions determined", {
@@ -185,13 +191,18 @@ export class LetslogicService {
         // Load already submitted solutions for this (apiKey, letslogicId).
         const alreadySubmitted = await DataStorage.loadSubmittedLetslogicSolutions(apiKey, letslogicId)
 
-        const submittedMoveCounts = alreadySubmitted.map(s => s.moveCount)
-        const submittedPushCounts = alreadySubmitted.map(s => s.pushCount)
+        let bestSubmittedMoves  = Number.POSITIVE_INFINITY
+        let bestSubmittedPushes = Number.POSITIVE_INFINITY
 
-        const bestSubmittedMoves  =
-            submittedMoveCounts.length > 0 ? Math.min(...submittedMoveCounts) : Number.POSITIVE_INFINITY
-        const bestSubmittedPushes =
-            submittedPushCounts.length > 0 ? Math.min(...submittedPushCounts) : Number.POSITIVE_INFINITY
+        for (let i = 0; i < alreadySubmitted.length; i++) {
+            const sub = alreadySubmitted[i]
+            if (sub.moveCount < bestSubmittedMoves) {
+                bestSubmittedMoves = sub.moveCount
+            }
+            if (sub.pushCount < bestSubmittedPushes) {
+                bestSubmittedPushes = sub.pushCount
+            }
+        }
 
         this.debug("Already submitted stats", {
             count: alreadySubmitted.length,
@@ -510,8 +521,8 @@ export class LetslogicService {
      * Submits the best solutions of all puzzles in the given collection to Letslogic.
      *
      * Only puzzles that:
-     *  - have a valid Letslogic ID and
-     *  - have at least one saved solution
+     * - have a valid Letslogic ID and
+     * - have at least one saved solution
      * are considered. For each of these puzzles only the locally best solutions
      * (by moves/pushes) are submitted, using the same rules as for a single puzzle.
      *
@@ -603,7 +614,7 @@ export class LetslogicService {
             }
 
             progress?.appendLine(
-                `  => Puzzle summary: ${submittedSuccess} submitted, ${submittedError} errors, ${skipped} skipped.`
+                ` => Puzzle summary: ${submittedSuccess} submitted, ${submittedError} errors, ${skipped} skipped.`
             )
         }
 

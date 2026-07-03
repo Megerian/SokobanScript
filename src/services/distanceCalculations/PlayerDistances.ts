@@ -21,7 +21,7 @@ export class PlayerDistances {
     private positionsToProcess= new Deque<number>()
 
     /** Returns whether the given [position] has been marked as reachable. */
-    isReachable(position: number): Boolean {
+    isReachable(position: number): boolean {
         return this.distanceTo[position] !== UNREACHABLE
     }
 
@@ -38,6 +38,10 @@ export class PlayerDistances {
      * being at the given [playerStartPosition] (default: current player position).
      */
     update(playerStartPosition: number = this.board.playerPosition) {
+
+        while (this.positionsToProcess.isNotEmpty()) {
+            this.positionsToProcess.removeFirst()
+        }
 
         this.distanceTo.fill(UNREACHABLE)
 

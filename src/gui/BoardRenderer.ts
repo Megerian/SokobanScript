@@ -9,11 +9,11 @@
 // via method parameters (SelectionState, playerDirection, ...).
 
 import {Board, REACHABLE_BOX, REACHABLE_PLAYER} from "../board/Board"
-import {CommonSkinFormatBase, SpriteData} from "../skins/commonSkinFormat/CommonSkinFormatBase"
+import {CommonSkinFormatBase, type SpriteData} from "../skins/commonSkinFormat/CommonSkinFormatBase"
 import {XSB_BACKGROUND, XSB_WALL} from "../Sokoban/PuzzleFormat"
 import {Settings} from "../app/Settings"
 import {Utilities} from "../utilities/Utilities"
-import {DIRECTION, UP} from "../Sokoban/Directions"
+import {type DIRECTION, UP} from "../Sokoban/Directions"
 
 /**
  * Special value indicating that no box is currently selected.
@@ -25,8 +25,8 @@ const NO_SELECTION = -1
  * UI-level selection state.
  *
  * Conventions:
- *  - selectedBoxPosition === NO_SELECTION → no box is currently selected
- *  - isPlayerSelected === true           → player selection animation should be active
+ * - selectedBoxPosition === NO_SELECTION → no box is currently selected
+ * - isPlayerSelected === true           → player selection animation should be active
  */
 export interface SelectionState {
     selectedBoxPosition: number
@@ -38,11 +38,11 @@ export interface SelectionState {
  * selection animations in a robust, time-based manner.
  *
  * Key ideas for animations:
- *  - Single requestAnimationFrame loop inside BoardRenderer.
- *  - Time-based frame selection (no "frame-per-tick" assumptions).
- *  - Robust against frame drops and GC pauses.
- *  - Board rendering remains deterministic; selection animation is
- *    drawn as a small overlay on top of the normal tiles.
+ * - Single requestAnimationFrame loop inside BoardRenderer.
+ * - Time-based frame selection (no "frame-per-tick" assumptions).
+ * - Robust against frame drops and GC pauses.
+ * - Board rendering remains deterministic; selection animation is
+ * drawn as a small overlay on top of the normal tiles.
  */
 export class BoardRenderer {
 
@@ -52,9 +52,9 @@ export class BoardRenderer {
     /**
      * Size (in pixels) of one logical board cell when rendered on the canvas.
      * This is computed from:
-     *  - current window / canvas size
-     *  - current board width / height
-     *  - Settings.graphicSize (auto or fixed)
+     * - current window / canvas size
+     * - current board width / height
+     * - Settings.graphicSize (auto or fixed)
      */
     private graphicDisplaySize = 44
 
@@ -133,7 +133,7 @@ export class BoardRenderer {
      * leaving a fixed margin around it.
      *
      * This does NOT redraw the board; the caller should
-     * call adjustNewGraphicSize() + updateCanvas() afterwards.
+     * call adjustNewGraphicSize() + updateCanvas() afterward.
      */
     adjustCanvasSize(): void {
         const canvasRect = this.canvas.getBoundingClientRect()
@@ -148,9 +148,9 @@ export class BoardRenderer {
 
     /**
      * Computes a new cell size (graphicDisplaySize) based on:
-     *  - current canvas size
-     *  - board width / height
-     *  - Settings.graphicSize ("auto" or fixed pixel size)
+     * - current canvas size
+     * - board width / height
+     * - Settings.graphicSize ("auto" or fixed pixel size)
      *
      * Clears the canvas but does NOT redraw the board.
      */
@@ -374,10 +374,10 @@ export class BoardRenderer {
      * (skin, speed, global enable flag) change.
      *
      * Effect:
-     *  - stops the current loop
-     *  - resets timing
-     *  - will be restarted automatically on the next updateCanvas*()
-     *    if selection and Settings.showAnimationFlag still demand it.
+     * - stops the current loop
+     * - resets timing
+     * - will be restarted automatically on the next updateCanvas*()
+     * if selection and Settings.showAnimationFlag still demand it.
      */
     restartAnimations(): void {
         this.stopAnimationLoop()
@@ -387,9 +387,9 @@ export class BoardRenderer {
      * Redraws selection highlight animations for the current selection state.
      *
      * This method:
-     *  - uses time-based frame selection (robust to frame drops),
-     *  - re-draws the underlying tile and then draws the selection sprite on top,
-     *    so that animations remain visually consistent with the board underneath.
+     * - uses time-based frame selection (robust to frame drops),
+     * - re-draws the underlying tile and then draws the selection sprite on top,
+     * so that animations remain visually consistent with the board underneath.
      */
     private redrawSelectionAnimations(): void {
 
@@ -442,8 +442,8 @@ export class BoardRenderer {
      * length at a specific animation time (in milliseconds).
      *
      * The frame duration is derived from:
-     *   - full cycle ≈ 1000 ms at 100% speed
-     *   - scaled by Settings.selectedObjectAnimationsSpeedPercent
+     * - full cycle ≈ 1000 ms at 100% speed
+     * - scaled by Settings.selectedObjectAnimationsSpeedPercent
      *
      * This function is purely time-based and robust against frame drops.
      */
@@ -476,18 +476,9 @@ export class BoardRenderer {
 
         const { outputX, outputY } = this.getCanvasCoordinatesForPosition(position)
 
-        // For skins with transparent player/box sprites, draw the floor first.
-        if(this.board.isGoal(position)) {
-            this.drawSprite(this.skin.getGoalSprite(), outputX, outputY)
-        } else {
-            this.drawSprite(this.skin.getFloorSprite(), outputX, outputY)
-        }
+        this.drawBaseTileAtPosition(position, this.lastPlayerDirection)
 
         this.drawSprite(sprite, outputX, outputY)
-
-        if (Settings.showCheckerboardPatternFlag && this.board.isActive(position)) {
-            this.drawCheckerboardOverlay(position, outputX, outputY)
-        }
     }
 
     // ---------------------------------------------------------------------
@@ -618,11 +609,9 @@ export class BoardRenderer {
     private drawCheckerboardOverlay(position: number, outputX: number, outputY: number): void {
         const { x, y } = this.getXYCoordinatesOf(position)
         const isLight = ((x + y) & 1) === 0
-        const overlayColor = isLight
+        this.ctx.fillStyle = isLight
             ? "rgba(255, 255, 255, 0.18)"
             : "rgba(0, 0, 0, 0.12)"
-
-        this.ctx.fillStyle = overlayColor
         this.ctx.fillRect(outputX, outputY, this.graphicDisplaySize, this.graphicDisplaySize)
     }
 
@@ -655,4 +644,3 @@ export class BoardRenderer {
         return cellY * this.board.width + cellX
     }
 }
-

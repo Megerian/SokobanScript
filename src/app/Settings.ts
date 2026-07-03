@@ -3,7 +3,7 @@
  * Values are cached in static fields for quick access and persisted using localforage.
  */
 import localforage from "localforage"
-import { SKIN_NAME } from "../skins/commonSkinFormat/CommonSkinFormatBase"
+import { type SKIN_NAME } from "../skins/commonSkinFormat/CommonSkinFormatBase"
 
 export class Settings {
 
@@ -11,20 +11,22 @@ export class Settings {
      * Default values for all settings.
      */
     static DEFAULTS = {
-        skinName:                            "KSokoban2",
-        graphicSize:                         "auto",
-        moveAnimationDelayMs:                50,
+        skinName:                             "KSokoban2",
+        graphicSize:                          "auto",
+        moveAnimationDelayMs:                 50,
         selectedObjectAnimationsSpeedPercent: 100,
-        showAnimationFlag:                   true,
-        showCheckerboardPatternFlag:           false,
-        hideWallsFlag:                       false,
-        soundEnabled:                        true,
-        reachablePositionColor:              "#FFFFFFEF",
-        backgroundColor:                     "#EBEDEF",
-        backgroundImageName:                 "",
-        showSnapshotListFlag:                true,
-        showRulerFlag:                       false,
-        letslogicApiKey:                     ""
+        showAnimationFlag:                    true,
+        showCheckerboardPatternFlag:          false,
+        hideWallsFlag:                        false,
+        soundEnabled:                         true,
+        reachablePositionColor:               "#FFFFFFEF",
+        backgroundColor:                      "#EBEDEF",
+        backgroundImageName:                  "",
+        showSnapshotListFlag:                 true,
+        showRulerFlag:                        false,
+        lastPlayedCollectionName:             "",
+        lastPlayedPuzzleNumber:               1,
+        letslogicApiKey:                      ""
     }
 
     /**
@@ -37,7 +39,7 @@ export class Settings {
     private static moveAnimationDelayMs_ = 50                  // Animation delay for moving the player/box in milliseconds
     private static selectedObjectAnimationsSpeedPercent_ = 100 // Animation speed for selected player/box in % of default speed
     private static showAnimationFlag_ = true                   // Whether animations for selected objects are shown
-    private static showCheckerboardPatternFlag_ = false          // Whether to draw the board with a checkerboard pattern
+    private static showCheckerboardPatternFlag_ = false        // Whether to draw the board with a checkerboard pattern
     private static hideWallsFlag_ = false                      // Whether walls are drawn
     private static soundEnabled_ = true                        // Whether sounds are played
     private static reachablePositionColor_ = "#FFFFFFEF"       // Color used to draw reachable positions
@@ -218,7 +220,6 @@ export class Settings {
 
     static set lastPlayedCollectionName(lastPlayedCollection: string) {
         Settings.lastPlayedCollectionName_ = lastPlayedCollection
-        // Kept key name "lastPlayedCollection" for backwards compatibility
         localforage.setItem("lastPlayedCollection", lastPlayedCollection).catch(err => console.log(err))
     }
 
@@ -251,77 +252,62 @@ export class Settings {
     // ---------------------------------------------------------------------
 
     /**
-     * Loads all settings from browser storage and applies them to the
+     * Loads all settings from browser storage in parallel and applies them to the
      * static fields. If a setting is not present in storage, the default
      * value from `Settings.DEFAULTS` is used.
      */
-    static async loadSettings() {
-        Settings.skinName_ =
-            (await localforage.getItem<SKIN_NAME>("skinName")) ??
-            (Settings.DEFAULTS.skinName as SKIN_NAME)
+    static async loadSettings(): Promise<void> {
+        const [
+            skinName,
+            graphicSize,
+            moveAnimationDelayMs,
+            selectedObjectAnimationsSpeedPercent,
+            showAnimationFlag,
+            showCheckerboardPatternFlag,
+            hideWallsFlag,
+            soundEnabled,
+            backgroundColor,
+            backgroundImageName,
+            showSnapshotListFlag,
+            showRulerFlag,
+            lastPlayedCollection,
+            lastPlayedPuzzleNumber,
+            reachablePositionColor,
+            letslogicApiKey
+        ] = await Promise.all([
+            localforage.getItem<SKIN_NAME>("skinName"),
+            localforage.getItem<string>("graphicSize"),
+            localforage.getItem<number>("moveAnimationDelayMs"),
+            localforage.getItem<number>("selectedObjectAnimationsSpeedPercent"),
+            localforage.getItem<boolean>("showAnimationFlag"),
+            localforage.getItem<boolean>("showCheckerboardPatternFlag"),
+            localforage.getItem<boolean>("hideWallsFlag"),
+            localforage.getItem<boolean>("soundEnabled"),
+            localforage.getItem<string>("backgroundColor"),
+            localforage.getItem<string>("backgroundImageName"),
+            localforage.getItem<boolean>("showSnapshotListFlag"),
+            localforage.getItem<boolean>("showRulerFlag"),
+            localforage.getItem<string>("lastPlayedCollection"),
+            localforage.getItem<number>("lastPlayedPuzzleNumber"),
+            localforage.getItem<string>("reachablePositionColor"),
+            localforage.getItem<string>("letslogicApiKey")
+        ])
 
-        Settings.graphicSize_ =
-            (await localforage.getItem<string>("graphicSize")) ??
-            Settings.DEFAULTS.graphicSize
-
-        Settings.moveAnimationDelayMs_ =
-            (await localforage.getItem<number>("moveAnimationDelayMs")) ??
-            Settings.DEFAULTS.moveAnimationDelayMs
-
-        Settings.selectedObjectAnimationsSpeedPercent_ =
-            (await localforage.getItem<number>("selectedObjectAnimationsSpeedPercent")) ??
-            Settings.DEFAULTS.selectedObjectAnimationsSpeedPercent
-
-        Settings.showAnimationFlag_ =
-            (await localforage.getItem<boolean>("showAnimationFlag")) ??
-            Settings.DEFAULTS.showAnimationFlag
-
-        Settings.showCheckerboardPatternFlag_ =
-            (await localforage.getItem<boolean>("showCheckerboardPatternFlag")) ??
-            Settings.DEFAULTS.showCheckerboardPatternFlag
-
-        Settings.hideWallsFlag_ =
-            (await localforage.getItem<boolean>("hideWallsFlag")) ??
-            Settings.DEFAULTS.hideWallsFlag
-
-        Settings.soundEnabled_ =
-            (await localforage.getItem<boolean>("soundEnabled")) ??
-            Settings.DEFAULTS.soundEnabled
-
-        Settings.backgroundColor_ =
-            (await localforage.getItem<string>("backgroundColor")) ??
-            Settings.DEFAULTS.backgroundColor
-
-        Settings.backgroundImageName_ =
-            (await localforage.getItem<string>("backgroundImageName")) ??
-            Settings.DEFAULTS.backgroundImageName
-
-        Settings.showSnapshotListFlag_ =
-            (await localforage.getItem<boolean>("showSnapshotListFlag")) ??
-            Settings.DEFAULTS.showSnapshotListFlag
-
-        // Ruler flag
-        Settings.showRulerFlag_ =
-            (await localforage.getItem<boolean>("showRulerFlag")) ??
-            Settings.DEFAULTS.showRulerFlag
-
-        Settings.lastPlayedCollectionName_ =
-            (await localforage.getItem<string>("lastPlayedCollection")) ??
-            ""
-
-        Settings.lastPlayedPuzzleNumber_ =
-            (await localforage.getItem<number>("lastPlayedPuzzleNumber")) ??
-            1
-
-        // Reachable position color – try dedicated key first, fallback to default
-        Settings.reachablePositionColor_ =
-            (await localforage.getItem<string>("reachablePositionColor")) ??
-            Settings.DEFAULTS.reachablePositionColor
-
-        // Letslogic API key
-        Settings.letslogicApiKey_ =
-            (await localforage.getItem<string>("letslogicApiKey")) ??
-            Settings.DEFAULTS.letslogicApiKey
+        Settings.skinName_ = skinName ?? (Settings.DEFAULTS.skinName as SKIN_NAME)
+        Settings.graphicSize_ = graphicSize ?? Settings.DEFAULTS.graphicSize
+        Settings.moveAnimationDelayMs_ = moveAnimationDelayMs ?? Settings.DEFAULTS.moveAnimationDelayMs
+        Settings.selectedObjectAnimationsSpeedPercent_ = selectedObjectAnimationsSpeedPercent ?? Settings.DEFAULTS.selectedObjectAnimationsSpeedPercent
+        Settings.showAnimationFlag_ = showAnimationFlag ?? Settings.DEFAULTS.showAnimationFlag
+        Settings.showCheckerboardPatternFlag_ = showCheckerboardPatternFlag ?? Settings.DEFAULTS.showCheckerboardPatternFlag
+        Settings.hideWallsFlag_ = hideWallsFlag ?? Settings.DEFAULTS.hideWallsFlag
+        Settings.soundEnabled_ = soundEnabled ?? Settings.DEFAULTS.soundEnabled
+        Settings.backgroundColor_ = backgroundColor ?? Settings.DEFAULTS.backgroundColor
+        Settings.backgroundImageName_ = backgroundImageName ?? Settings.DEFAULTS.backgroundImageName
+        Settings.showSnapshotListFlag_ = showSnapshotListFlag ?? Settings.DEFAULTS.showSnapshotListFlag
+        Settings.showRulerFlag_ = showRulerFlag ?? Settings.DEFAULTS.showRulerFlag
+        Settings.lastPlayedCollectionName_ = lastPlayedCollection ?? Settings.DEFAULTS.lastPlayedCollectionName
+        Settings.lastPlayedPuzzleNumber_ = lastPlayedPuzzleNumber ?? Settings.DEFAULTS.lastPlayedPuzzleNumber
+        Settings.reachablePositionColor_ = reachablePositionColor ?? Settings.DEFAULTS.reachablePositionColor
+        Settings.letslogicApiKey_ = letslogicApiKey ?? Settings.DEFAULTS.letslogicApiKey
     }
 }
-

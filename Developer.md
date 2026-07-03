@@ -8,13 +8,11 @@ Originally the app required a PHP proxy because letslogic.com did not provide pr
 This is no longer necessary — the LetsLogic API now supports direct browser calls.
 
 Therefore:
-
 - The PHP proxy has been removed.
 - `LetsLogicClient` now calls the LetsLogic API directly from the browser.
 - The project is now a completely static web application (HTML/CSS/JS; no server-side components needed).
 
 The project runs:
-
 - In development via Parcel (`http://localhost:1234`)
 - In production as a static site (SourceForge, GitHub Pages, Netlify, any static host)
 
@@ -33,9 +31,13 @@ The project runs:
  │   │   ├─ letslogic/         # LetsLogicClient + LetsLogicService
  │   │   └─ pathFinding/       # Pathfinding logic
  │   ├─ storage/               # IndexedDB abstraction via localForage
- │   └─ sound/                 # Sound helpers
+ │   ├─ sound/                 # Sound helpers
+ │   └─ jquery-global.ts       # Global jQuery binding layer for Fomantic-UI
  │
- ├─ resources/                 # Skins, puzzles, images, audio
+ ├─ public/                    # Static assets copied 1:1 to output root via ncp
+ │   ├─ resources/             # Skins, puzzles, images, audio
+ │   ├─ manifest.webmanifest   # PWA web manifest (relative paths)
+ │   └─ service-worker.js      # PWA service worker (relative paths)
  ├─ dist/                      # Parcel dev output
  ├─ release/                   # Production build output
  ├─ package.json
@@ -46,78 +48,53 @@ The project runs:
 
 ## Important Source Modules
 
+### `src/jquery-global.ts`
+Guarantees deterministic initialization order. It intercepts the bundler's ES Module (ESM) hoisting by exposing jQuery to the global `window` scope *before* Fomantic UI's vendor scripts load and look for `window.jQuery`.
+
 ### `src/app/SokobanApp.ts`
 Main controller coordinating UI, board state, move history, solutions, and LetsLogic integration.
 
 ### `src/gui/GUI.ts`
-Responsible for:
-
-- DOM event handling
-- Canvas rendering (via `BoardRenderer`)
-- Snapshot/solution sidebar
-- LetsLogic modal dialogs (API key + submission progress)
+Responsible for DOM event handling, canvas rendering (via `BoardRenderer`), the snapshot sidebar, and dialog orchestrations. To comply with strict bundler tree-shaking and scope-hoisting configurations, it decodes `$` directly from the global window scope (`const $ = (window as any).$`).
 
 ### `src/Sokoban/domainObjects/*`
 Core Sokoban concepts (`Board`, `Puzzle`, `Solution`, `Snapshot`, `Collection`).
 
 ### `src/services/letslogic/LetsLogicClient.ts`
 Direct browser client for:
-
 ```
-POST https://letslogic.com/api/v1/level/<id>
+POST [https://letslogic.com/api/v1/level/](https://letslogic.com/api/v1/level/)<id>
 ```
-
-Handles:
-
-- Automatic retries on "API Locked"
-- Debug logging
-- Form-encoded request payloads
+Handles automatic retries on "API Locked", debug logging, and form-encoded request payloads.
 
 ### `src/services/letslogic/LetsLogicService.ts`
-Encapsulates all LetsLogic logic:
-
-- Reading and validating API key
-- Selecting best local solutions
-- Comparing with already-submitted results
-- Submitting only improving results
-- Providing detailed progress logs to GUI
-
-### `src/storage/DataStorage.ts`
-Handles persistence:
-
-- Saved snapshots/solutions
-- LetsLogic submission records (per API key and puzzle ID)
+Encapsulates all LetsLogic logic: validating keys, filtering local best solutions, and performing delta-submissions.
 
 ---
 
 ## Development Setup
 
 ### Requirements
-
 - Node.js (LTS)
 - Parcel bundler
 - Any browser
 
 ### Install Dependencies
-
 ```bash
 npm install
-npm install -g parcel
 ```
 
 ### Start Development Server
-
 ```bash
 npm run start
 ```
+This deploys the static files and launches Parcel on `http://localhost:1234` with hot-reloading enabled.
 
-This launches Parcel on:
-
+### Strict Type Checking
+To check the entire codebase for type mismatches or incorrect type-only imports (`verbatimModuleSyntax` compliance) without triggering a build, run:
+```bash
+npm run typecheck
 ```
-http://localhost:1234
-```
-
-Parcel automatically rebuilds TypeScript and reloads on file changes.
 
 ---
 
@@ -127,11 +104,9 @@ Parcel automatically rebuilds TypeScript and reloads on file changes.
 npm run build
 ```
 
-This creates an optimized static build in:
-
-```
-release/
-```
+### Compilation Workflow
+1. **Type Compliance:** Runs `tsc --noEmit` via the `typecheck` script. Any structural or syntax error halts the build instantly.
+2. **Bundling:** Parcel bundles and minifies assets into the `release/` folder using strictly relative asset paths (`--public-url ./`).
 
 Upload the contents of `release/` to any static web host.
 
@@ -140,85 +115,20 @@ Upload the contents of `release/` to any static web host.
 ## LetsLogic Integration
 
 ### Direct Browser Calls
-
-The client now sends:
-
-```
-POST https://letslogic.com/api/v1/level/<puzzleId>
-```
-
-Body:
-
-- `key` — API Key
-- `solution` — LURD moves
-
-No proxy server, no PHP.
+The client sends standard form payloads directly to the official endpoints without server proxies.
 
 ### Best Solution Selection
-
-For each puzzle:
-
-1. Determine `bestByMove` and `bestByPush`.
-2. Load previously submitted results from IndexedDB.
-3. Submit solutions only if they improve either:
-    - move count, or
-    - push count.
-
-### Debug Logging
-
-Enable one of:
-
-**API key prefix:**
-```
-debug: REAL_KEY
-```
-
-**Browser console:**
-```js
-window.LETSLOGIC_DEBUG = true
-```
-
-**Code:**
-```ts
-LetsLogicClient.DEBUG = true;
-```
+Solutions are only submitted if they strictly improve either the total move count or total push count compared to the synchronization records stored inside IndexedDB.
 
 ---
 
 ## Storage
-
 IndexedDB via localForage stores:
-
 - Snapshots and solutions
-- Best submitted LetsLogic results per `(apiKey, letslogicId)`
-
-This allows delta submission and prevents unnecessary API calls.
+- Best submitted LetsLogic results per `(apiKey, letslogicId)` to prevent redundant API load.
 
 ---
 
-## Hosting Notes
+## Hosting Notes & Subdirectory Support
 
-Because the PHP proxy is removed:
-
-- The app is now 100% static.
-- Hosting works on any static platform:
-    - SourceForge
-    - GitHub Pages
-    - Netlify
-    - Cloudflare Pages
-    - Local file system (file://) with some restrictions
-
-Ensure that:
-
-- `resources/` is uploaded intact
-- `index.html` is served at the root
-
----
-
-## Additional Notes
-
-- No backend is required.
-- No server configuration is required.
-- LetsLogic submission is asynchronous and visible in a dedicated modal with progress log.
-- Local data persists per browser origin.
-
+Because all asset paths are relative and omit leading slashes (`resources/...` instead of `/resources/...`), the app can be hosted deep within nested subdirectory paths (e.g., SourceForge project subfolders or GitHub Pages project subpaths) without breaking PWA service worker scopes or canvas skin asset mapping.

@@ -1,4 +1,4 @@
-import { DIRECTION, Directions, DOWN, LEFT, RIGHT, UP } from "../Sokoban/Directions"
+import { type DIRECTION, Directions, DOWN, LEFT, RIGHT, UP } from "../Sokoban/Directions"
 import { Board, NOT_REACHABLE } from "../board/Board"
 import { MoveHistory } from "./MoveHistory"
 import { Sound } from "../sound/Sound"
@@ -10,7 +10,7 @@ import { LURDVerifier } from "../services/lurdVerifier/LurdVerifier"
 import { Solution } from "../Sokoban/domainObjects/Solution"
 import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
 import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
-import {DataStorage, StoredBoardSnapshotsDTO} from "../storage/DataStorage"
+import {DataStorage, type StoredBoardSnapshotsDTO} from "../storage/DataStorage"
 import { Messages } from "../gui/Messages"
 import { Collection } from "../Sokoban/domainObjects/Collection"
 import { LetslogicService } from "../services/letslogic/LetsLogicService"
@@ -19,6 +19,9 @@ import { LURD_CHARS } from "../Sokoban/PuzzleFormat"
 import {GUI} from "../gui/GUI";
 import {Action} from "../gui/Actions";
 import {StoragePersistenceService} from "../services/storage/StoragePersistenceService";
+
+// Explicitly bind the dollar sign from the window scope to shield from advanced bundler tree-shaking anomalies
+const $ = (window as any).$
 
 export const NONE = -1
 
@@ -276,7 +279,7 @@ export class SokobanApp {
         this.gui.updateCanvas()
     }
 
-    // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
     // Path + animation
     // ---------------------------------------------------------------------
 
@@ -299,6 +302,9 @@ export class SokobanApp {
                 if (moveNo < playerPath.length - 1 && Settings.moveAnimationDelayMs !== 0) {
                     await this.sleep(Settings.moveAnimationDelayMs)
                 }
+            } else {
+                // Animation was canceled by another action; stop iterating immediately.
+                break
             }
         }
 
@@ -323,28 +329,31 @@ export class SokobanApp {
 
         const playerPositions: number[] = []
 
-        for (const newBoxPosition of boxPath) {
+        try {
+            for (const newBoxPosition of boxPath) {
 
-            this.board.setBox(currentBoxPosition)
-            const positionToPushFrom = currentBoxPosition + (currentBoxPosition - newBoxPosition)
-            const playerPath         = this.playerPathFinding.getPathTo(positionToPushFrom)
-            this.board.removeBox(currentBoxPosition)
+                this.board.setBox(currentBoxPosition)
+                const positionToPushFrom = currentBoxPosition + (currentBoxPosition - newBoxPosition)
+                const playerPath         = this.playerPathFinding.getPathTo(positionToPushFrom)
+                this.board.removeBox(currentBoxPosition)
 
-            if (playerPath == null) {
-                alert("Bug: no path to push box for player found.")
-                return []
+                if (playerPath == null) {
+                    alert("Bug: no path to push box for player found.")
+                    return []
+                }
+
+                playerPositions.push(...playerPath)
+                playerPositions.push(currentBoxPosition)
+
+                this.board.playerPosition = currentBoxPosition
+                currentBoxPosition        = newBoxPosition
             }
-
-            playerPositions.push(...playerPath)
-            playerPositions.push(currentBoxPosition)
-
-            this.board.playerPosition = currentBoxPosition
-            currentBoxPosition        = newBoxPosition
+        } finally {
+            // CRITICAL FIX: Ensure original board state is restored under all circumstances,
+            // even if a sub-path calculation fails or returns early.
+            this.board.playerPosition = playerPositionBackup
+            this.board.setBox(startBoxPosition)
         }
-
-        // Restore original board state.
-        this.board.playerPosition = playerPositionBackup
-        this.board.setBox(startBoxPosition)
 
         return playerPositions
     }
@@ -607,6 +616,10 @@ export class SokobanApp {
         this.updateMovesPushesInGUI()
     }
 
+    // ---------------------------------------------------------------------
+    // Undo / Redo (Bulk Operations)
+    // ---------------------------------------------------------------------
+
     redoAllMoves(): void {
 
         this.selectedBoxPosition = NONE
@@ -618,7 +631,8 @@ export class SokobanApp {
         while (nextMoveChar != null) {
 
             const direction    = Directions.getDirectionFromLURDChar(nextMoveChar)
-            const movementType = this.movePlayerToDirection(direction, true, false)
+            // PERF FIX: Pass false to avoid heavy canvas redraws on every single macro step.
+            const movementType = this.movePlayerToDirection(direction, false, false)
 
             if (movementType !== MovementType.NONE) {
                 lastMovementType = movementType
@@ -626,6 +640,10 @@ export class SokobanApp {
 
             nextMoveChar = this.moveHistory.redoMove()
         }
+
+        // Trigger a single bulk update after all positions have been updated.
+        this.gui.updateCanvas()
+        this.updateMovesPushesInGUI()
 
         if (lastMovementType !== MovementType.NONE) {
             SokobanApp.playSoundForMovementType(lastMovementType)

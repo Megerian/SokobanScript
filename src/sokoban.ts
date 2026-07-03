@@ -1,3 +1,7 @@
+// Import the global jQuery binding file first to guarantee initialization order before plugins load
+import "./jquery-global"
+import "fomantic-ui/dist/semantic.min.js"
+
 import { SokobanApp } from "./app/SokobanApp"
 import { URLParameterParser } from "./URLParameterParser"
 import { Puzzle } from "./Sokoban/domainObjects/Puzzle"
@@ -25,8 +29,10 @@ async function startApp(): Promise<void> {
         }
 
         if (startPuzzleViaURL) {
-            // Remove URL parameters from the address bar.
-            window.history.replaceState("", "Sokoban", location.origin)
+            // Remove URL parameters without breaking subdirectories/subpaths
+            const cleanUrl = new URL(window.location.href)
+            cleanUrl.search = ""
+            window.history.replaceState(null, "Sokoban", cleanUrl.toString())
 
             // Set a default title if none is provided.
             if (!startPuzzleViaURL.title || startPuzzleViaURL.title.trim().length === 0) {
@@ -37,23 +43,47 @@ async function startApp(): Promise<void> {
             addUserPuzzleEntry(startPuzzleViaURL, collectionSelector)
         }
 
-        // Trigger the "change" event so that the appropriate puzzle/collection
-        // is loaded (either the user puzzle or the default one).
-        collectionSelector.dispatchEvent(new CustomEvent("change"))
+        // Trigger standard native Event instead of CustomEvent for HTMLSelectElement
+        collectionSelector.dispatchEvent(new Event("change", { bubbles: true }))
     } catch (error) {
         console.error("Failed to bootstrap Sokoban app:", error)
     }
 }
 
-startApp()
+// Execute application bootstrapping ONLY after the DOM is fully loaded.
+// This prevents "Cannot set properties of null" errors when GUI components query checkboxes.
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startApp)
+} else {
+    startApp()
+}
+
+// PWA: Inject web manifest dynamically to bypass Parcel's build-time checks and support subdirectories
+window.addEventListener("load", () => {
+
+    const manifestLink = document.createElement("link")
+    manifestLink.rel = "manifest"
+    manifestLink.href = "manifest.webmanifest"
+    document.head.appendChild(manifestLink)
+
+    const icoIcon = document.createElement("link")
+    icoIcon.rel = "icon"
+    icoIcon.type = "image/x-icon"
+    icoIcon.href = "favicon.ico"
+    document.head.appendChild(icoIcon)
+})
 
 // PWA: register service worker (non-blocking)
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
+        // Use an array join strategy to bypass Parcel's static code analysis tracer.
+        // This stops Parcel from enforcing bundle control and path hashing over the service worker file.
+        const swPath = ["service", "worker.js"].join("-")
+
         navigator.serviceWorker
-            .register(new URL("./service-worker.js", import.meta.url))
+            .register(swPath)
             .then(reg => {
-                if (process.env.NODE_ENV === "development") {
+                if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
                     console.log("Service worker registered with scope:", reg.scope)
                 }
             })
@@ -74,6 +104,6 @@ function addUserPuzzleEntry(puzzle: Puzzle, collectionSelector: HTMLSelectElemen
     userPuzzleOption.innerText = puzzle.title
 
     // Add the new collection as the first option.
-    collectionSelector.replaceChildren(userPuzzleOption, ...collectionSelector.children)
+    collectionSelector.insertBefore(userPuzzleOption, collectionSelector.firstChild)
     collectionSelector.selectedIndex = 0
 }

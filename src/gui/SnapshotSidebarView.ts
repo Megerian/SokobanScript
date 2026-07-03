@@ -1,6 +1,8 @@
-// SnapshotSidebarView.ts
 import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
 import { Solution } from "../Sokoban/domainObjects/Solution"
+
+// Resolve the jQuery dollar sign from the global window instance to ensure runtime availability
+const $ = (window as any).$
 
 export interface SnapshotSidebarCallbacks {
     onSetSnapshot(snapshot: Snapshot): void
@@ -44,6 +46,9 @@ export class SnapshotSidebarView {
     ): void {
         this.clear()
 
+        const fragment = document.createDocumentFragment()
+        const itemsToAnimate: HTMLElement[] = []
+
         const isBestPush = (s: Snapshot) =>
             bestByPush != null && s.uniqueID === bestByPush.uniqueID
         const isBestMove = (s: Snapshot) =>
@@ -54,13 +59,21 @@ export class SnapshotSidebarView {
             this.addSnapshotListItem(
                 solution,
                 isBestPush(solution),
-                isBestMove(solution)
+                isBestMove(solution),
+                fragment,
+                itemsToAnimate
             )
         }
 
         // 2) All snapshots
         for (const snapshot of snapshots) {
-            this.addSnapshotListItem(snapshot, false, false)
+            this.addSnapshotListItem(snapshot, false, false, fragment, itemsToAnimate)
+        }
+
+        this.snapshotList.appendChild(fragment)
+
+        for (let i = 0; i < itemsToAnimate.length; i++) {
+            ($(itemsToAnimate[i]) as any).transition("jiggle", "0.5s")
         }
 
         this.applySnapshotFilters()
@@ -87,7 +100,9 @@ export class SnapshotSidebarView {
     private addSnapshotListItem(
         snapshot: Snapshot,
         isBestByPush: boolean,
-        isBestByMove: boolean
+        isBestByMove: boolean,
+        targetContainer: DocumentFragment,
+        itemsToAnimate: HTMLElement[]
     ): void {
 
         const isSolution = snapshot instanceof Solution
@@ -162,9 +177,8 @@ export class SnapshotSidebarView {
         snapshotItem.appendChild(contentDiv)
         snapshotItem.appendChild(deleteIcon)
 
-        this.snapshotList.appendChild(snapshotItem)
-
-        ;(($("#" + snapshotItem.id) as any)).transition("jiggle", "0.5s")
+        targetContainer.appendChild(snapshotItem)
+        itemsToAnimate.push(snapshotItem)
     }
 
     private applySnapshotFilters(): void {

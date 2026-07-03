@@ -31,17 +31,17 @@ export class PlayerPathFinding {
      *
      * If no path to the target position is found `null` is returned.
      */
-    getPathTo(targetPosition: number): Array<number> | null {
+    getPathTo(targetPosition: number): number[] | null {
         return this.getPath(this.board.playerPosition, targetPosition)
     }
 
     /**
      * Calculates and returns the reachable positions of the player.
      */
-    getReachablePositions(): Array<number> {
-        this.getPathTo(0)   // search path to invalid target to mark all reachable positions
+    getReachablePositions(): number[] {
+        this.getPath(this.board.playerPosition, -1)   // search path to negative target to mark all reachable positions
 
-        const reachablePositions = new Array<number>()
+        const reachablePositions: number[] = []
         for(let position=0; position<this.reachedFromPosition.length; position++) {
             if ((this.reachedFromPosition)[position] != NONE) {
                 reachablePositions.push(position)
@@ -58,7 +58,7 @@ export class PlayerPathFinding {
      *
      * If no path to the target position is found `null` is returned.
      */
-    getPath(startPosition: number, targetPosition: number):  Array<number> | null {
+    getPath(startPosition: number, targetPosition: number):  number[] | null {
 
         if (startPosition == targetPosition) {
             return []
@@ -95,7 +95,7 @@ export class PlayerPathFinding {
      * Returns the player path found by following the trail back from the
      * [endPosition] to the starting position.
      */
-    private constructPlayerPath(playerPosition: number): Array<number> {
+    private constructPlayerPath(playerPosition: number): number[] {
 
         this.positionsDeque.clear()
 

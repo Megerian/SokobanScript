@@ -28,7 +28,7 @@ export class KeyboardController {
 
     /**
      * @param isModalOpen     Returns true while any modal dialog is open.
-     *                        While this is true, no keyboard shortcuts are processed.
+     * While this is true, no keyboard shortcuts are processed.
      * @param dispatchUiAction  Callback that executes a high-level UiAction.
      */
     constructor(
@@ -69,10 +69,10 @@ export class KeyboardController {
      * Global keydown handler.
      *
      * Applies the following rules:
-     *  - Ignore if Shift or Ctrl is pressed (keeps shortcuts simple).
-     *  - Ignore while a modal is open (so dialogs can handle input).
-     *  - Ignore if user is typing in form elements.
-     *  - Map keys to UiActions and dispatch them.
+     * - Ignore if Shift or Ctrl is pressed (keeps shortcuts simple).
+     * - Ignore while a modal is open (so dialogs can handle input).
+     * - Ignore if user is typing in form elements.
+     * - Map keys to UiActions and dispatch them.
      */
     private handleKeyDown(event: KeyboardEvent): void {
 
@@ -210,4 +210,3 @@ export class KeyboardController {
         }
     }
 }
-

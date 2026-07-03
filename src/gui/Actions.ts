@@ -1,13 +1,13 @@
 // UiActions.ts
 //
-// Central action enum used across GUI, KeyboardController and SokobanApp.
+// Central action object used across GUI, KeyboardController and SokobanApp.
 //
 // The idea:
 //  - KeyboardController only knows these high-level actions (no GUI internals).
 //  - GUI maps some of them to pure UI behavior (e.g. focusing selectors, toggling sidebars).
 //  - SokobanApp handles the game logic actions (moves, undo/redo, imports, etc.).
 
-export const enum Action {
+export const Action = {
 
     // -------------------------------------------------------------
     // Pure UI / focus actions (no game logic)
@@ -16,12 +16,12 @@ export const enum Action {
     /**
      * Focus and open the collection selector (e.g. triggered by keyboard).
      */
-    focusCollectionSelector = "focusCollectionSelector",
+    focusCollectionSelector: "focusCollectionSelector",
 
     /**
      * Focus and open the puzzle selector (e.g. triggered by keyboard).
      */
-    focusPuzzleSelector = "focusPuzzleSelector",
+    focusPuzzleSelector: "focusPuzzleSelector",
 
     // -------------------------------------------------------------
     // Movement (game actions on the current board)
@@ -30,22 +30,22 @@ export const enum Action {
     /**
      * Move the player one step to the left (if possible).
      */
-    moveLeft  = "moveLeft",
+    moveLeft: "moveLeft",
 
     /**
      * Move the player one step to the right (if possible).
      */
-    moveRight = "moveRight",
+    moveRight: "moveRight",
 
     /**
      * Move the player one step upwards (if possible).
      */
-    moveUp    = "moveUp",
+    moveUp: "moveUp",
 
     /**
      * Move the player one step downwards (if possible).
      */
-    moveDown  = "moveDown",
+    moveDown: "moveDown",
 
     // -------------------------------------------------------------
     // Undo / Redo
@@ -54,22 +54,22 @@ export const enum Action {
     /**
      * Undo a single move.
      */
-    undo   = "undo",
+    undo: "undo",
 
     /**
      * Redo a single previously undone move.
      */
-    redo   = "redo",
+    redo: "redo",
 
     /**
      * Undo all moves and return to the initial puzzle state.
      */
-    undoAll = "undoAll",
+    undoAll: "undoAll",
 
     /**
      * Redo all available moves and go to the final state.
      */
-    redoAll = "redoAll",
+    redoAll: "redoAll",
 
     // -------------------------------------------------------------
     // Snapshot / sidebar
@@ -78,17 +78,17 @@ export const enum Action {
     /**
      * Toggle visibility of the snapshot list sidebar.
      */
-    toggleSnapshotList = "toggleSnapshotList",
+    toggleSnapshotList: "toggleSnapshotList",
 
     /**
      * Persist the current board state as a snapshot/solution candidate.
      */
-    saveSnapshot = "saveSnapshot",
+    saveSnapshot: "saveSnapshot",
 
     /**
      * Toggle "delete mode" in the snapshot sidebar UI.
      */
-    toggleDeleteSnapshotMode = "toggleDeleteSnapshotMode",
+    toggleDeleteSnapshotMode: "toggleDeleteSnapshotMode",
 
     // -------------------------------------------------------------
     // Puzzle navigation / selection
@@ -97,22 +97,22 @@ export const enum Action {
     /**
      * Fired when the user selects a new collection in the UI.
      */
-    collectionSelected = "collectionSelected",
+    collectionSelected: "collectionSelected",
 
     /**
      * Fired when the user selects a new puzzle in the UI.
      */
-    puzzleSelected = "puzzleSelected",
+    puzzleSelected: "puzzleSelected",
 
     /**
      * Navigate to the next puzzle in the current collection.
      */
-    nextPuzzle = "nextPuzzle",
+    nextPuzzle: "nextPuzzle",
 
     /**
      * Navigate to the previous puzzle in the current collection.
      */
-    previousPuzzle = "previousPuzzle",
+    previousPuzzle: "previousPuzzle",
 
     // -------------------------------------------------------------
     // Rendering / view-related settings
@@ -121,52 +121,52 @@ export const enum Action {
     /**
      * Show or hide walls when rendering the board.
      */
-    hideWalls = "hideWalls",
+    hideWalls: "hideWalls",
 
     /**
      * Enable or disable sound effects.
      */
-    toggleSoundEnabled = "toggleSoundEnabled",
+    toggleSoundEnabled: "toggleSoundEnabled",
 
     /**
      * Set a new background color (from the color input).
      */
-    setBackgroundColor = "setBackgroundColor",
+    setBackgroundColor: "setBackgroundColor",
 
     /**
      * Reset the background color to the default value.
      */
-    setDefaultBackgroundColor = "setDefaultBackgroundColor",
+    setDefaultBackgroundColor: "setDefaultBackgroundColor",
 
     /**
      * Set the predefined "Drops" background image.
      */
-    setDropsBackgroundImage = "setDropsBackgroundImage",
+    setDropsBackgroundImage: "setDropsBackgroundImage",
 
     /**
      * Enable or disable move/selection animations.
      */
-    showAnimationsCheckbox = "showAnimationsCheckbox",
+    showAnimationsCheckbox: "showAnimationsCheckbox",
 
     /**
      * Toggle checkerboard pattern rendering for the board.
      */
-    toggleCheckerboardPattern = "toggleCheckerboardPattern",
+    toggleCheckerboardPattern: "toggleCheckerboardPattern",
 
     /**
      * Apply checkerboard pattern setting from checkbox state.
      */
-    setCheckerboardPattern = "setCheckerboardPattern",
+    setCheckerboardPattern: "setCheckerboardPattern",
 
     /**
      * Toggle board ruler visibility (row/column labels).
      */
-    toggleRuler = "toggleRuler",
+    toggleRuler: "toggleRuler",
 
     /**
      * Apply ruler visibility setting from checkbox state.
      */
-    setRuler = "setRuler",
+    setRuler: "setRuler",
 
     // -------------------------------------------------------------
     // Clipboard / import / export (moves and puzzles)
@@ -175,27 +175,27 @@ export const enum Action {
     /**
      * Copy the current move sequence as a string to the clipboard.
      */
-    copyMovesAsString = "copyMovesAsString",
+    copyMovesAsString: "copyMovesAsString",
 
     /**
      * Paste a move string from the clipboard and apply it.
      */
-    pasteMovesFromClipboard = "pasteMovesFromClipboard",
+    pasteMovesFromClipboard: "pasteMovesFromClipboard",
 
     /**
      * Import a puzzle from the clipboard into the current session.
      */
-    importPuzzleFromClipboard = "importPuzzleFromClipboard",
+    importPuzzleFromClipboard: "importPuzzleFromClipboard",
 
     /**
      * Copy the current puzzle layout to the clipboard.
      */
-    copyPuzzleToClipboard = "copyPuzzleToClipboard",
+    copyPuzzleToClipboard: "copyPuzzleToClipboard",
 
     /**
      * Import a solution from a LURD string.
      */
-    importLURDString = "importLURDString",
+    importLURDString: "importLURDString",
 
     // -------------------------------------------------------------
     // Letslogic integration
@@ -204,17 +204,17 @@ export const enum Action {
     /**
      * Open the Letslogic API key dialog / update the stored key.
      */
-    setLetslogicApiKey = "setLetslogicApiKey",
+    setLetslogicApiKey: "setLetslogicApiKey",
 
     /**
      * Submit all solutions for the current puzzle to Letslogic.
      */
-    submitLetslogicCurrentPuzzleSolutions = "submitLetslogicCurrentPuzzleSolutions",
+    submitLetslogicCurrentPuzzleSolutions: "submitLetslogicCurrentPuzzleSolutions",
 
     /**
      * Submit all solutions for the current collection to Letslogic.
      */
-    submitLetslogicCollectionSolutions   = "submitLetslogicCollectionSolutions",
+    submitLetslogicCollectionSolutions: "submitLetslogicCollectionSolutions",
 
     // -------------------------------------------------------------
     // Database integration
@@ -223,7 +223,7 @@ export const enum Action {
     /**
      * Export the local database (boards, solutions, snapshots).
      */
-    exportDatabase = "exportDatabase",
+    exportDatabase: "exportDatabase",
 
     // -------------------------------------------------------------
     // Board / mouse interaction
@@ -232,7 +232,7 @@ export const enum Action {
     /**
      * Fired when a board cell is clicked (mapped from mouse position).
      */
-    cellClicked = "cellClicked",
+    cellClicked: "cellClicked",
 
     // -------------------------------------------------------------
     // Misc UI dialogs
@@ -241,6 +241,8 @@ export const enum Action {
     /**
      * Show the "How to play" help dialog.
      */
-    howToPlay = "howToPlay",
-}
+    howToPlay: "howToPlay",
+} as const
 
+// This exports the type representing any of the values above
+export type Action = typeof Action[keyof typeof Action]

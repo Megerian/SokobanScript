@@ -8,14 +8,6 @@ export class Metrics {
 
     /** Returns a clone of this `Metrics` */
     clone(): Metrics {
-        const metrics = new Metrics()
-        metrics.moveCount = this.moveCount
-        metrics.pushCount = this.pushCount
-        metrics.boxLineCount = this.boxLineCount
-        metrics.boxChangeCount = this.boxChangeCount
-        metrics.pushingSessionCount = this.pushingSessionCount
-        metrics.playerLineCount = this.playerLineCount
-
-        return metrics
+        return Object.assign(new Metrics(), this)
     }
 }

@@ -43,27 +43,29 @@ export class Puzzle {
      * Adds the given solution to this puzzle.
      *
      * @return true if the solution was added; false if a solution
-     *         with the same LURD already exists.
+     * with the same LURD already exists.
      */
     addSolution(solution: Solution): boolean {
-        if (!this.solutions.has(solution.lurd)) {
-            this.solutions.set(solution.lurd, solution)
-            return true
+        if (this.solutions.has(solution.lurd)) {
+            return false
         }
-        return false
+
+        this.solutions.set(solution.lurd, solution)
+        return true
     }
 
     /**
      * Adds the given snapshot to this puzzle.
      *
      * @return true if the snapshot was added; false if a snapshot
-     *         with the same LURD already exists.
+     * with the same LURD already exists.
      */
     addSnapshot(snapshot: Snapshot): boolean {
-        if (!this.snapshots.has(snapshot.lurd)) {
-            this.snapshots.set(snapshot.lurd, snapshot)
-            return true
+        if (this.snapshots.has(snapshot.lurd)) {
+            return false
         }
-        return false
+
+        this.snapshots.set(snapshot.lurd, snapshot)
+        return true
     }
 }

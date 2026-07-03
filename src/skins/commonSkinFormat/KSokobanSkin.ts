@@ -1,19 +1,19 @@
-import {CommonSkinFormatBase} from "./CommonSkinFormatBase"
+import { CommonSkinFormatBase } from "./CommonSkinFormatBase"
 
 /**
  * The KSokobanSkin.
  */
 export class KSokobanSkin extends CommonSkinFormatBase {
 
-    protected topBorder	   = 0
-    protected bottomBorder = 0
-    protected leftBorder   = 0
-    protected rightBorder  = 0
+    protected readonly topBorder    = 0
+    protected readonly bottomBorder = 0
+    protected readonly leftBorder   = 0
+    protected readonly rightBorder  = 0
 
-    protected mainImagesFile = this.skinsPath + "/KSokoban/KSokoban.png"
-    protected wallImagesFile = this.skinsPath + "/KSokoban/KSokoban walls.png"
+    protected readonly mainImagesFile = this.skinsPath + "/KSokoban/KSokoban.png"
+    protected readonly wallImagesFile = this.skinsPath + "/KSokoban/KSokoban walls.png"
 
-    protected imageSize = 56
-    protected animationGraphicCount = 0
-    defaultAnimationDelayInMs = 150
+    protected readonly imageSize = 56
+    protected readonly animationGraphicCount = 0
+    public readonly defaultAnimationDelayInMs = 150
 }

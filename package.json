@@ -5,25 +5,31 @@
   "description": "Play Sokoban online",
   "homepage": "https://sourceforge.net/projects/sokoban-solver-statistics/",
   "dependencies": {
-    "fomantic-ui": "^2.10.0-beta.84",
-    "jquery": "^4.0.0",
+    "fomantic-ui": "^2.10.0-beta.103",
+    "jquery": "^3.7.1",
     "localforage": "^1.10.0"
   },
   "devDependencies": {
     "@parcel/packager-raw-url": "^2.16.4",
     "@parcel/transformer-webmanifest": "^2.16.4",
-    "@types/jquery": "^3.5.33",
-    "@types/node": "^25.3.0",
-    "baseline-browser-mapping": "^2.10.0",
+    "@types/jquery": "^3.5.34",
+    "@types/node": "^26.1.0",
     "ncp": "^2.0.0",
     "parcel": "^2.16.4",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ncp resources release/resources && parcel build src/index.html --no-source-maps --dist-dir ./release",
-    "start": "ncp resources dist/resources && parcel src/index.html"
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && ncp public/ release/ && parcel build src/index.html --no-source-maps --public-url ./ --dist-dir ./release",
+    "start": "ncp public/ dist/ && parcel src/index.html"
   },
   "author": "Matthias Meger",
-  "license": "GPL-3.0-or-later"
+  "license": "GPL-3.0-or-later",
+  "allowScripts": {
+    "@parcel/watcher@2.5.6": true,
+    "@swc/core@1.15.11": true,
+    "lmdb@2.8.5": true,
+    "msgpackr-extract@3.0.3": true
+  }
 }

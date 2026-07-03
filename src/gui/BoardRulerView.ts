@@ -4,16 +4,16 @@
 // (top: columns A, B, C, …; left: rows 1, 2, 3, …).
 //
 // Responsibilities:
-//  - Show / hide rulers based on Settings.showRulerFlag.
-//  - Render labels so that they match the current board dimensions
-//    and the current board pixel size.
-//  - Highlight the column / row that corresponds to the board cell
-//    under the mouse cursor.
+// - Show / hide rulers based on Settings.showRulerFlag.
+// - Render labels so that they match the current board dimensions
+//   and the current board pixel size.
+// - Highlight the column / row that corresponds to the board cell
+//   under the mouse cursor.
 //
 // This class is purely a view helper and knows nothing about SokobanApp.
 // The owning GUI is responsible for:
-//  - wiring mouse move events on the canvas and calling highlightForBoardPosition(),
-//  - calling updateLayout() whenever the board or the board pixel size changes.
+// - wiring mouse move events on the canvas and calling highlightForBoardPosition(),
+// - calling updateLayout() whenever the board or the board pixel size changes.
 //
 
 import { Board } from "../board/Board"
@@ -64,9 +64,9 @@ export class BoardRulerView {
      * Updates visibility and layout of the rulers.
      *
      * Should be called whenever:
-     *  - the board changes (new puzzle / different size),
-     *  - the board pixel size changes (resize / graphic size),
-     *  - Settings.showRulerFlag changes.
+     * - the board changes (new puzzle / different size),
+     * - the board pixel size changes (resize / graphic size),
+     * - Settings.showRulerFlag changes.
      */
     updateLayout(): void {
         if (!this.topContainer || !this.leftContainer) {
@@ -93,11 +93,11 @@ export class BoardRulerView {
      * or clears the highlight if the position is null or out of bounds.
      *
      * Intended usage from GUI:
-     *   const boardPos = this.boardRenderer.screenToBoard(event.clientX, event.clientY)
-     *   this.boardRulerView.highlightForBoardPosition(boardPos)
+     * const boardPos = this.boardRenderer.screenToBoard(event.clientX, event.clientY)
+     * this.boardRulerView.highlightForBoardPosition(boardPos)
      */
     highlightForBoardPosition(boardPosition: number | null): void {
-        // If rulers are hidden or we do not have a valid board position, clear highlight.
+        // If rulers are hidden, or we do not have a valid board position, clear highlight.
         if (!Settings.showRulerFlag || boardPosition == null) {
             this.clearHighlight()
             return
@@ -178,6 +178,7 @@ export class BoardRulerView {
     /** Renders the top ruler (columns A, B, C, …). */
     private renderTopRuler(cols: number, cellWidth: number): void {
         this.topContainer.innerHTML = ""
+        const fragment = document.createDocumentFragment()
 
         for (let x = 0; x < cols; x++) {
             const label   = this.getColumnLabel(x)   // A, B, ..., Z, AA, AB, ...
@@ -186,13 +187,16 @@ export class BoardRulerView {
             cellDiv.dataset.col = String(x)
             cellDiv.style.width = `${cellWidth}px`
             cellDiv.textContent = label
-            this.topContainer.appendChild(cellDiv)
+            fragment.appendChild(cellDiv)
         }
+
+        this.topContainer.appendChild(fragment)
     }
 
     /** Renders the left ruler (rows 1, 2, 3, …). */
     private renderLeftRuler(rows: number, cellHeight: number): void {
         this.leftContainer.innerHTML = ""
+        const fragment = document.createDocumentFragment()
 
         for (let y = 0; y < rows; y++) {
             const cellDiv = document.createElement("div")
@@ -200,8 +204,10 @@ export class BoardRulerView {
             cellDiv.dataset.row = String(y)
             cellDiv.style.height = `${cellHeight}px`
             cellDiv.textContent = String(y + 1)
-            this.leftContainer.appendChild(cellDiv)
+            fragment.appendChild(cellDiv)
         }
+
+        this.leftContainer.appendChild(fragment)
     }
 
     /**
@@ -211,15 +217,7 @@ export class BoardRulerView {
      * the number of children matches the current board width/height.
      */
     private highlightRulerForCell(col: number, row: number): void {
-        // Remove previous highlight
-        if (this.highlightedRulerCol) {
-            this.highlightedRulerCol.classList.remove("board-ruler-highlight")
-            this.highlightedRulerCol = null
-        }
-        if (this.highlightedRulerRow) {
-            this.highlightedRulerRow.classList.remove("board-ruler-highlight")
-            this.highlightedRulerRow = null
-        }
+        this.clearHighlight()
 
         const colElement = this.topContainer.children[col] as HTMLElement | undefined
         if (colElement) {
@@ -236,7 +234,7 @@ export class BoardRulerView {
 
     /**
      * Converts a zero-based column index to a spreadsheet-like label:
-     *   0 -> "A", 1 -> "B", …, 25 -> "Z", 26 -> "AA", 27 -> "AB", ...
+     * 0 -> "A", 1 -> "B", …, 25 -> "Z", 26 -> "AA", 27 -> "AB", ...
      */
     private getColumnLabel(index: number): string {
         let n = index

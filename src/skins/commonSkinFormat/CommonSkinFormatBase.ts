@@ -1,32 +1,32 @@
-import {Board} from "../../board/Board"
-import {DIRECTION, DOWN, LEFT, RIGHT, UP} from "../../Sokoban/Directions"
-import {NONE} from "../../app/SokobanApp"
+import { Board } from "../../board/Board"
+import { type DIRECTION, DOWN, LEFT, RIGHT, UP } from "../../Sokoban/Directions"
+import { NONE } from "../../app/SokobanApp"
 
 /** Supported skins */
 export type SKIN_NAME = "AntiqueDesk" | "AntiqueDesk3" | "NightShift3" | "HeavyMetal3" |
-                        "SokoGems"    | "KSokoban"     | "KSokoban2"
+    "SokoGems" | "KSokoban" | "KSokoban2"
 
 export abstract class CommonSkinFormatBase {
 
-    protected skinsPath = "/resources/skins"       // path to the skin files
+    protected skinsPath = "resources/skins"       // path to the skin files
 
     protected skinImage = new Image()
     protected wallsImage = new Image()
 
     private dummySprite = new SpriteData(this.skinImage)
 
-    protected  boxSprite             = this.dummySprite
-    protected  boxOnGoalSprite       = this.dummySprite
-    protected  goalSprite            = this.dummySprite
-    protected  floorSprite           = this.dummySprite
-    protected  wallSprites           = Array<SpriteData>()
-    protected  playerInViewDirectionSprites       = Array<SpriteData>()
-    protected  playerOnGoalInViewDirectionSprites = Array<SpriteData>()
+    protected boxSprite             = this.dummySprite
+    protected boxOnGoalSprite       = this.dummySprite
+    protected goalSprite            = this.dummySprite
+    protected floorSprite           = this.dummySprite
+    protected wallSprites: SpriteData[] = []
+    protected playerInViewDirectionSprites: SpriteData[] = []
+    protected playerOnGoalInViewDirectionSprites: SpriteData[] = []
 
-    playerSelectedAnimationSprites       = Array<SpriteData>()
-    playerOnGoalSelectedAnimationSprites = Array<SpriteData>()
-    boxSelectedAnimationSprites          = Array<SpriteData>()
-    boxOnGoalSelectedAnimationSprites    = Array<SpriteData>()
+    playerSelectedAnimationSprites: SpriteData[] = []
+    playerOnGoalSelectedAnimationSprites: SpriteData[] = []
+    boxSelectedAnimationSprites: SpriteData[] = []
+    boxOnGoalSelectedAnimationSprites: SpriteData[] = []
 
     // Data the actual skin classes have to override
     protected abstract topBorder: number
@@ -39,25 +39,35 @@ export abstract class CommonSkinFormatBase {
     protected playerInViewDirectionSpritesY       = NONE // row in the skin graphic where the directional player graphics are located
     protected playerOnGoalInViewDirectionSpritesY = NONE // row in the skin graphic where the directional player on goal graphics are located
 
-    protected animationGraphicCount         = NONE   // number of graphics available for showing animations
-    protected playerAnimationSpritesY       = NONE  // row in the skin graphic where the player animation graphics are located
-    protected playerOnGoalAnimationSpritesY = NONE  // row in the skin graphic where the player on goal animation graphics are located
-    protected boxAnimationSpritesY          = NONE  // row in the skin graphic where the box animation graphics are located
-    protected boxOnGoalAnimationSpritesY    = NONE  // row in the skin graphic where the box on goal animation graphics are located
+    protected animationGraphicCount         = NONE // number of graphics available for showing animations
+    protected playerAnimationSpritesY       = NONE // row in the skin graphic where the player animation graphics are located
+    protected playerOnGoalAnimationSpritesY = NONE // row in the skin graphic where the player on goal animation graphics are located
+    protected boxAnimationSpritesY          = NONE // row in the skin graphic where the box animation graphics are located
+    protected boxOnGoalAnimationSpritesY    = NONE // row in the skin graphic where the box on goal animation graphics are located
 
     protected abstract mainImagesFile: string
     protected abstract wallImagesFile: string
 
-    useAlphaBlendingForAnimations= true         // Flag indicating whether alpha blending should be used for showing animations
+    useAlphaBlendingForAnimations= true // Flag indicating whether alpha blending should be used for showing animations
 
     constructor() { }
 
 
     async loadImages() {
-        await this.loadImage(this.mainImagesFile).then( image => this.skinImage = image)
-            .catch( reason => console.log("Skin file couldn't be loaded: "+this.mainImagesFile))
-        await this.loadImage(this.wallImagesFile).then( wallsImage => this.wallsImage = wallsImage)
-            .catch( reason => console.log("Skin walls file couldn't be loaded: "+this.wallImagesFile))
+        try {
+            this.skinImage = await this.loadImage(this.mainImagesFile)
+        } catch (reason) {
+            console.log("Skin file couldn't be loaded: "+this.mainImagesFile)
+            return
+        }
+
+        try {
+            this.wallsImage = await this.loadImage(this.wallImagesFile)
+        } catch (reason) {
+            console.log("Skin walls file couldn't be loaded: "+this.wallImagesFile)
+            return
+        }
+
         await this.setSpriteImages()
     }
 
@@ -126,30 +136,32 @@ export abstract class CommonSkinFormatBase {
 
         if (this.playerInViewDirectionSpritesY != NONE) {
             this.playerInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(0, this.playerInViewDirectionSpritesY),   // player up
-                await this.createSpriteForCoordinates(2, this.playerInViewDirectionSpritesY),   // player down
-                await this.createSpriteForCoordinates(1, this.playerInViewDirectionSpritesY),   // player left
-                await this.createSpriteForCoordinates(3, this.playerInViewDirectionSpritesY)]   // player right
+                await this.createSpriteForCoordinates(0, this.playerInViewDirectionSpritesY), // player up
+                await this.createSpriteForCoordinates(2, this.playerInViewDirectionSpritesY), // player down
+                await this.createSpriteForCoordinates(1, this.playerInViewDirectionSpritesY), // player left
+                await this.createSpriteForCoordinates(3, this.playerInViewDirectionSpritesY)] // player right
         } else {
+            const normalPlayer = await this.createSpriteForCoordinates(1, 0)
             this.playerInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(1, 0),   // use the normal
-                await this.createSpriteForCoordinates(1, 0),   // player graphic
-                await this.createSpriteForCoordinates(1, 0),   // for all
-                await this.createSpriteForCoordinates(1, 0)]   // view directions
+                normalPlayer, // use the normal
+                normalPlayer, // player graphic
+                normalPlayer, // for all
+                normalPlayer] // view directions
         }
 
         if (this.playerOnGoalInViewDirectionSpritesY != NONE) {
             this.playerOnGoalInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(0, this.playerOnGoalInViewDirectionSpritesY),   // player up
-                await this.createSpriteForCoordinates(2, this.playerOnGoalInViewDirectionSpritesY),   // player down
-                await this.createSpriteForCoordinates(1, this.playerOnGoalInViewDirectionSpritesY),   // player left
-                await this.createSpriteForCoordinates(3, this.playerOnGoalInViewDirectionSpritesY)]   // player right
+                await this.createSpriteForCoordinates(0, this.playerOnGoalInViewDirectionSpritesY), // player up
+                await this.createSpriteForCoordinates(2, this.playerOnGoalInViewDirectionSpritesY), // player down
+                await this.createSpriteForCoordinates(1, this.playerOnGoalInViewDirectionSpritesY), // player left
+                await this.createSpriteForCoordinates(3, this.playerOnGoalInViewDirectionSpritesY)] // player right
         } else {
+            const normalPlayerOnGoal = await this.createSpriteForCoordinates(1, 1)
             this.playerOnGoalInViewDirectionSprites = [
-                await this.createSpriteForCoordinates(1, 1),   // use the normal
-                await this.createSpriteForCoordinates(1, 1),   // player on goal graphic
-                await this.createSpriteForCoordinates(1, 1),   // for all
-                await this.createSpriteForCoordinates(1, 1)]   // view directions
+                normalPlayerOnGoal, // use the normal
+                normalPlayerOnGoal, // player on goal graphic
+                normalPlayerOnGoal, // for all
+                normalPlayerOnGoal] // view directions
         }
 
         // There are four graphic sets for showing animations. One for: player, playerOnGoal, box and boxOnGoal.
@@ -191,13 +203,13 @@ export abstract class CommonSkinFormatBase {
             await this.createWallSpriteForCoordinates(7, 0),   // wall neighbor above+right+below
             await this.createWallSpriteForCoordinates(8, 0),   // wall neighbor left
             await this.createWallSpriteForCoordinates(9, 0),   // wall neighbor above+left
-            await this.createWallSpriteForCoordinates(10, 0),   // wall neighbor left+right
-            await this.createWallSpriteForCoordinates(11, 0),   // wall neighbor above+left+right
-            await this.createWallSpriteForCoordinates(12, 0),   // wall neighbor left+below
-            await this.createWallSpriteForCoordinates(13, 0),   // wall neighbor above+left+below
-            await this.createWallSpriteForCoordinates(14, 0),   // wall neighbor left+right+below
-            await this.createWallSpriteForCoordinates(15, 0),   // wall neighbor above+left+right+below
-            await this.createBeautyGraphic(),                        // beauty graphic
+            await this.createWallSpriteForCoordinates(10, 0),  // wall neighbor left+right
+            await this.createWallSpriteForCoordinates(11, 0),  // wall neighbor above+left+right
+            await this.createWallSpriteForCoordinates(12, 0),  // wall neighbor left+below
+            await this.createWallSpriteForCoordinates(13, 0),  // wall neighbor above+left+below
+            await this.createWallSpriteForCoordinates(14, 0),  // wall neighbor left+right+below
+            await this.createWallSpriteForCoordinates(15, 0),  // wall neighbor above+left+right+below
+            await this.createBeautyGraphic(),                  // beauty graphic
         ]
     }
 
@@ -297,7 +309,7 @@ export abstract class CommonSkinFormatBase {
 
         // Copy A to lower right corner
         ctx.drawImage(beautyGraphic, 0, 0, this.imageSize/2, this.imageSize/2,
-                                     this.imageSize/2, this.imageSize/2, this.imageSize/2, this.imageSize/2)
+            this.imageSize/2, this.imageSize/2, this.imageSize/2, this.imageSize/2)
 
         // Copy B to lower left corner
         ctx.drawImage(beautyGraphic,this.imageSize/2, 0, this.imageSize/2, this.imageSize/2,
@@ -306,7 +318,7 @@ export abstract class CommonSkinFormatBase {
 
         // Copy C to upper right corner
         ctx.drawImage(beautyGraphic, 0, this.imageSize/2, this.imageSize/2, this.imageSize/2,
-                                    this.imageSize/2, 0, this.imageSize/2, this.imageSize/2)
+            this.imageSize/2, 0, this.imageSize/2, this.imageSize/2)
 
         // Copy D to upper left corner
         ctx.drawImage(beautyGraphic,this.imageSize/2, this.imageSize/2, this.imageSize/2, this.imageSize/2,
@@ -325,7 +337,7 @@ export abstract class CommonSkinFormatBase {
      * @param position the position on the board
      */
     protected getCutRectangles(board: Board, position: number): Rectangle[] {
-        
+
         const positionAbove = board.getNeighborPosition(position, UP)
         const positionLeft  = board.getNeighborPosition(position, LEFT)
         const positionRight = board.getNeighborPosition(position, RIGHT)
@@ -338,35 +350,35 @@ export abstract class CommonSkinFormatBase {
 
         const imageWidth  = this.getImageSize()
         const imageHeight = this.getImageSize()
-        
+
         const rectanglesToClear: Rectangle[] = []
 
         if(board.isBackground(positionAbove)) {
-            rectanglesToClear.push(new Rectangle(0, 0, imageWidth, this.topBorder))  // clear the complete top border
+            rectanglesToClear.push(new Rectangle(0, 0, imageWidth, this.topBorder)) // clear the complete top border
         } else {
             if(board.isBackground(positionAboveLeft)) {
-                rectanglesToClear.push(new Rectangle(0, 0, this.leftBorder, this.topBorder))  // clear the top left corner
+                rectanglesToClear.push(new Rectangle(0, 0, this.leftBorder, this.topBorder)) // clear the top left corner
             }
             if(board.isBackground(positionAboveRight)) {
-                rectanglesToClear.push(new Rectangle(imageWidth, 0, -this.rightBorder, this.topBorder))  // clear the top right corner
+                rectanglesToClear.push(new Rectangle(imageWidth, 0, -this.rightBorder, this.topBorder)) // clear the top right corner
             }
         }
 
         if(board.isBackground(positionLeft)) {
-            rectanglesToClear.push(new Rectangle(0, 0, this.leftBorder, imageHeight))  // clear the left border
+            rectanglesToClear.push(new Rectangle(0, 0, this.leftBorder, imageHeight)) // clear the left border
         }
         if(board.isBackground(positionRight)) {
-            rectanglesToClear.push(new Rectangle(imageWidth, 0, -this.rightBorder, imageHeight))  // clear the right border
+            rectanglesToClear.push(new Rectangle(imageWidth, 0, -this.rightBorder, imageHeight)) // clear the right border
         }
 
         if(board.isBackground(positionBelow)) {
-            rectanglesToClear.push(new Rectangle(0, imageHeight, imageWidth, -this.bottomBorder))  // clear the complete bottom border
+            rectanglesToClear.push(new Rectangle(0, imageHeight, imageWidth, -this.bottomBorder)) // clear the complete bottom border
         } else {
             if(board.isBackground(positionBelowLeft)) {
-                rectanglesToClear.push(new Rectangle(0, imageHeight, this.leftBorder, -this.bottomBorder))  // clear the bottom left corner
+                rectanglesToClear.push(new Rectangle(0, imageHeight, this.leftBorder, -this.bottomBorder)) // clear the bottom left corner
             }
             if(board.isBackground(positionBelowRight)) {
-                rectanglesToClear.push(new Rectangle(imageWidth, imageHeight, -this.rightBorder, -this.bottomBorder))  // clear the bottom right corner
+                rectanglesToClear.push(new Rectangle(imageWidth, imageHeight, -this.rightBorder, -this.bottomBorder)) // clear the bottom right corner
             }
         }
 
@@ -392,14 +404,14 @@ export abstract class CommonSkinFormatBase {
      * @param sprites
      * @private
      */
-    private async createSmootherAnimationGraphicsFor(sprites: Array<SpriteData>): Promise<Array<SpriteData>> {
+    private async createSmootherAnimationGraphicsFor(sprites: SpriteData[]): Promise<SpriteData[]> {
 
         if(!this.useAlphaBlendingForAnimations) {
             return sprites
         }
 
-        const currentGraphics = [...sprites, sprites[0]]    // for the last image intermediate images for reaching the first image are to be created
-        const newGraphics = []
+        const currentGraphics = [...sprites, sprites[0]] // for the last image intermediate images for reaching the first image are to be created
+        const newGraphics: SpriteData[] = []
 
         for(let graphicIndex=0; graphicIndex < currentGraphics.length-1; graphicIndex++) {
             const firstGraphic  = currentGraphics[graphicIndex]
@@ -420,7 +432,7 @@ export abstract class CommonSkinFormatBase {
      * @param firstGraphic
      * @param secondGraphic
      */
-    private async createIntermediateGraphics(firstGraphic: HTMLImageElement, secondGraphic: HTMLImageElement): Promise<Array<SpriteData>> {
+    private async createIntermediateGraphics(firstGraphic: HTMLImageElement, secondGraphic: HTMLImageElement): Promise<SpriteData[]> {
 
         const canvas  = document.createElement("canvas")
         canvas.width  = this.getImageSize()
@@ -428,10 +440,11 @@ export abstract class CommonSkinFormatBase {
         const ctx = canvas.getContext("2d")!
 
         const additionalGraphicCount = 4
-        const intermediateGraphics = Array<HTMLImageElement>()
+        const intermediateGraphics: HTMLImageElement[] = []
 
         for(let newGraphicCount=0; newGraphicCount < additionalGraphicCount; newGraphicCount++) {
 
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
             ctx.drawImage(firstGraphic, 0, 0)
 
             ctx.globalAlpha = 1.0/(additionalGraphicCount+1) * (newGraphicCount+1)
@@ -450,7 +463,7 @@ export abstract class CommonSkinFormatBase {
 
 
 export class SpriteData {
-    constructor(public readonly image:HTMLImageElement,
+    constructor(public readonly image: HTMLImageElement,
                 public rectanglesToClear: Rectangle[] = [],
                 public beautyGraphic: SpriteData | null = null,
                 public xDrawOffset: number = 0,

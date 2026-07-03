@@ -44,12 +44,12 @@ export class PuzzleCollectionIO {
      * Parses a text in classic Sokoban collection format (.sok) into a list of puzzles.
      *
      * Behavior:
-     *  - Each block of contiguous valid board rows (as detected by PuzzleFormat.isValidBoardRow)
-     *    starts a new puzzle.
-     *  - "ID:" and "Title:" lines that appear after a board block belong to the current puzzle.
-     *  - LURD blocks (consecutive lines containing only L/U/R/D chars) belong to the current puzzle
-     *    and are verified against the puzzle's board. Valid LURDs are stored as Solution or Snapshot.
-     *  - Comments and all other lines are ignored.
+     * - Each block of contiguous valid board rows (as detected by PuzzleFormat.isValidBoardRow)
+     * starts a new puzzle.
+     * - "ID:" and "Title:" lines that appear after a board block belong to the current puzzle.
+     * - LURD blocks (consecutive lines containing only L/U/R/D chars) belong to the current puzzle
+     * and are verified against the puzzle's board. Valid LURDs are stored as Solution or Snapshot.
+     * - Comments and all other lines are ignored.
      */
     static parsePuzzleCollection(collectionAsString: string): Puzzle[] {
 
@@ -107,17 +107,17 @@ export class PuzzleCollectionIO {
      * from a raw text string.
      *
      * The input may contain:
-     *  - one or more board rows (detected via PuzzleFormat.isValidBoardRow)
-     *  - an optional "ID: <number>" line (LetsLogic puzzle ID)
-     *  - an optional "Title: <text>" line
-     *  - optional LURD blocks (consecutive lines of pure L/U/R/D chars)
-     *  - arbitrary other comment lines, which are ignored
+     * - one or more board rows (detected via PuzzleFormat.isValidBoardRow)
+     * - an optional "ID: <number>" line (LetsLogic puzzle ID)
+     * - an optional "Title: <text>" line
+     * - optional LURD blocks (consecutive lines of pure L/U/R/D chars)
+     * - arbitrary other comment lines, which are ignored
      *
      * Behavior:
-     *  - Uses the same low-level parsing logic as the collection parser
-     *    (via parseRawPuzzleBlocks) and then takes the first parsed block.
-     *  - On success, a fully initialized Puzzle instance is returned.
-     *  - On failure, a human-readable error message (string) is returned.
+     * - Uses the same low-level parsing logic as the collection parser
+     * (via parseRawPuzzleBlocks) and then takes the first parsed block.
+     * - On success, a fully initialized Puzzle instance is returned.
+     * - On failure, a human-readable error message (string) is returned.
      */
     static parseSinglePuzzleWithMetadata(rawPuzzleString: string): Puzzle | string {
 
@@ -173,16 +173,16 @@ export class PuzzleCollectionIO {
 
     /**
      * Parses the input text into "raw puzzle blocks":
-     *  - Each block corresponds to one puzzle candidate.
-     *  - A block starts with a contiguous sequence of valid board rows.
-     *  - Subsequent "ID:" and "Title:" lines are attached to the same block.
-     *  - Subsequent LURD blocks are attached to the same block.
+     * - Each block corresponds to one puzzle candidate.
+     * - A block starts with a contiguous sequence of valid board rows.
+     * - Subsequent "ID:" and "Title:" lines are attached to the same block.
+     * - Subsequent LURD blocks are attached to the same block.
      *
      * It does NOT construct Board or Puzzle instances. That is done by the
      * higher-level methods, which can also decide how to deal with invalid boards.
      */
     private static parseRawPuzzleBlocks(text: string): RawPuzzleBlock[] {
-        const lines = text.replace(/\r/g, "").split(/\n/)
+        const lines = text.split(/\r?\n/)
         const blocks: RawPuzzleBlock[] = []
 
         let current: RawPuzzleBlock | null = null
@@ -264,17 +264,20 @@ export class PuzzleCollectionIO {
      * (ignoring surrounding whitespace).
      */
     private static isLurdLine(line: string): boolean {
-        const trimmed = line.trim()
-        if (trimmed.length === 0) {
-            return false
-        }
+        let hasChars = false
+        const len = line.length
 
-        for (const c of trimmed) {
-            if (!this.isLurdChar(c)) {
+        for (let i = 0; i < len; i++) {
+            const code = line.charCodeAt(i)
+            if (code <= 32) {
+                continue
+            }
+            if (!this.isLurdChar(line[i])) {
                 return false
             }
+            hasChars = true
         }
-        return true
+        return hasChars
     }
 
     /**
@@ -284,8 +287,8 @@ export class PuzzleCollectionIO {
      * are concatenated. Reading stops when a line is not a pure LURD line.
      *
      * Returns:
-     *  - `lurd`: concatenated LURD string
-     *  - `nextIndex`: index of the first line after the LURD block
+     * - `lurd`: concatenated LURD string
+     * - `nextIndex`: index of the first line after the LURD block
      */
     private static readLurdBlock(
         lines: string[],

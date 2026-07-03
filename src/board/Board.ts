@@ -1,9 +1,9 @@
-import {DIRECTION, Directions, DOWN, LEFT, RIGHT, UP} from "../Sokoban/Directions"
+import { type  DIRECTION, Directions, DOWN, LEFT, RIGHT, UP} from "../Sokoban/Directions"
 import {Deque} from "../dataStrutures/Deque"
 import {
     XSB_PLAYER,
     XSB_PLAYER_ON_GOAL,
-    XSB_CHAR,
+    type XSB_CHAR,
     XSB_BOX_ON_GOAL,
     XSB_BOX,
     XSB_GOAL,
@@ -27,7 +27,7 @@ const DEAD_SQUARE = 1 << 5
 export class Board {
 
     static readonly NONE = -1
-    private readonly elements: Array<number> = []
+    private readonly elements: Array<number>
 
     readonly size: number
 
@@ -48,12 +48,12 @@ export class Board {
 
     private constructor(public width: number, public height: number) {
         this.size = width * height
-        this.elements.fill(BACKGROUND)
+
+        this.elements = new Array<number>(this.size).fill(BACKGROUND)
 
         this.positions = [...Array(this.size).keys()]   // all valid positions on the board
 
-        this.reachableMarker = new Array<REACHABLE_MARKER>()
-        this.reachableMarker.fill(NOT_REACHABLE)
+        this.reachableMarker = new Array<REACHABLE_MARKER>(this.size).fill(NOT_REACHABLE)
 
         this.neighborsOf = new Array<Int32Array>(this.size)
     }
@@ -167,7 +167,7 @@ export class Board {
     pushBox(position: number, newPosition: number): boolean {
 
         if (!this.isBox(position)) {
-            console.log("Error: no box at position ${position} to push.")
+            console.log(`Error: no box at position ${position} to push.`)
             return false
         }
 
@@ -211,7 +211,7 @@ export class Board {
             case -this.width: return UP
         }
 
-        throw RangeError
+        throw new RangeError("Positions are not adjacent")
     }
 
     getBoardAsString(): string {
@@ -247,7 +247,7 @@ export class Board {
         const height = lines.length
 
         const width = lines.map(line => line.length)
-                                   .reduce((a, b) => Math.max(a, b), -Infinity)
+            .reduce((a, b) => Math.max(a, b), -Infinity)
 
         if(width < 3 || height < 3) {
             return "No valid board"
@@ -423,7 +423,7 @@ export class Board {
 
         const hasWallOnBothAxes = (position: number) =>
             (board.isWall(board.getNeighborPosition(position, UP)) || board.isWall(board.getNeighborPosition(position, DOWN)))
-         && (board.isWall(board.getNeighborPosition(position, LEFT)) || board.isWall(board.getNeighborPosition(position, RIGHT)))
+            && (board.isWall(board.getNeighborPosition(position, LEFT)) || board.isWall(board.getNeighborPosition(position, RIGHT)))
 
         board.activePositions.filter(board.isNotGoal)
                              .filter(hasWallOnBothAxes)
@@ -431,6 +431,19 @@ export class Board {
     }
 
     clone(): Board {
-        return Board.createFromString(this.getBoardAsString()) as Board
+        const cloned = new Board(this.width, this.height)
+        cloned.playerPosition = this.playerPosition
+        cloned.boxCount = this.boxCount
+        cloned.boxOnGoalCount = this.boxOnGoalCount
+        cloned.goalCount = this.goalCount
+
+        for (let i = 0; i < this.size; i++) {
+            cloned.elements[i] = this.elements[i]
+            cloned.reachableMarker[i] = this.reachableMarker[i]
+            cloned.neighborsOf[i] = this.neighborsOf[i]
+        }
+
+        cloned.activePositions.push(...this.activePositions)
+        return cloned
     }
 }

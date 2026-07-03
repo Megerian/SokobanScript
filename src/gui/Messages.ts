@@ -1,3 +1,6 @@
+// Resolve the jQuery dollar sign from the global window instance to ensure runtime availability
+const $ = (window as any).$
+
 export class Messages {
 
     /**
@@ -17,14 +20,14 @@ export class Messages {
         ($('body') as any).toast({
             title: title,
             message: message,
-            class: typeClass,        // 'green', 'error', 'yellow', ...
+            class: typeClass,
             position: 'bottom center',
             showIcon: true,
             displayTime: displayTime,
-            showProgress: 'top',     // optional: visual progress bar
-            closeIcon: true,         // optional: allow manual closing
+            showProgress: 'top',
+            closeIcon: true,
             className: {
-                toast: 'ui message'  // use Semantic/Fomantic "message" look
+                toast: 'ui message'
             }
         })
     }

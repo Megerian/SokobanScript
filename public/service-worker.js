@@ -1,19 +1,21 @@
 // service-worker.js
 
 // Bump this to force clients to pick up new HTML/CSS/JS without hard reload
-const CACHE_NAME = "sokoban-cache-v3";
+const CACHE_NAME = "sokoban-cache-v5";
 
 const PRECACHE_URLS = [
-    "/",
-    "/index.html",
-    "/manifest.webmanifest", // PWA manifest (if present)
+    "./",
+    "index.html",
+    "manifest.webmanifest",
+
+    "favicon.svg",
 
     // Initial puzzle collection
-    "/resources/puzzles/Mini Cosmos.sok",
+    "resources/puzzles/Mini Cosmos.sok",
 
     // Initial skin (images with stable paths)
-    "/resources/skins/KSokoban2/KSokoban.png",
-    "/resources/skins/KSokoban2/KSokoban walls.png",
+    "resources/skins/KSokoban2/KSokoban.png",
+    "resources/skins/KSokoban2/KSokoban walls.png",
 ];
 
 // Install: pre-cache the core app shell and selected static assets
@@ -54,7 +56,7 @@ self.addEventListener("fetch", event => {
     // For navigation requests (HTML pages), use an app-shell-style strategy
     if (request.mode === "navigate") {
         event.respondWith(
-            fetch(request).catch(() => caches.match("/index.html"))
+            fetch(request).catch(() => caches.match("index.html"))
         );
         return;
     }
@@ -85,10 +87,9 @@ self.addEventListener("fetch", event => {
 
                     return networkResponse;
                 })
-                .catch(() => {
-                    // As a generic offline fallback, return index.html
-                    // (you can customize this to return another offline page)
-                    return caches.match("/index.html");
+                .catch(error => {
+                    // Letting media/assets fail naturally prevents audio/canvas corruption.
+                    throw error;
                 });
         })
     );

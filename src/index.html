@@ -6,31 +6,20 @@
 
     <title>The Sokoban Game</title>
 
-    <!-- PWA: theme color for browser UI -->
     <meta name="theme-color" content="#2185d0">
 
-    <!-- PWA: web app manifest -->
-    <link rel="manifest" href="./manifest.webmanifest">
-
-
-    <!-- Fomantic UI CSS -->
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.css">
-
-    <!-- App styles -->
+    <link rel="stylesheet" type="text/css" href="../node_modules/fomantic-ui/dist/semantic.min.css">
     <link rel="stylesheet" href="./styles.css">
 </head>
 
 <body>
 
-<!-- Sidebar with snapshots/solutions -->
 <div class="ui sidebar" id="snapshotSidebar">
 
-    <!-- Header -->
     <h1 class="ui header" id="snapshotListHeader">
         <div class="content">Saved states</div>
     </h1>
 
-    <!-- Filter buttons -->
     <div class="snapshot-filter-buttons">
         <button
                 class="ui tiny compact primary button active"
@@ -48,12 +37,9 @@
         </button>
     </div>
 
-    <!-- Scrollable list of snapshots/solutions -->
     <div class="ui selection divided list" id="snapshotList">
-        <!-- Items are added here dynamically -->
     </div>
 
-    <!-- Action buttons at the bottom (sticky footer inside sidebar) -->
     <div id="snapshotSidebarButtons">
         <button class="ui center labeled icon button" id="saveSnapshotButton">
             <i class="save icon"></i>
@@ -72,15 +58,12 @@
 </div>
 
 
-<!-- Pusher: content that moves when the sidebar is visible -->
 <div id="pusher" class="pusher">
 
-    <!-- Top menu bar -->
     <div class="ui top attached menu">
         <div class="ui container">
 
 
-            <!-- Puzzle menu -->
             <div class="ui simple dropdown item desktop-only">
                 <i class="grid layout icon"></i> Puzzle
                 <i class="dropdown icon"></i>
@@ -100,7 +83,6 @@
                 </div>
             </div>
 
-            <!-- Moves menu -->
             <div class="ui simple dropdown item desktop-only">
                 <i class="barcode icon"></i> Moves
                 <i class="dropdown icon"></i>
@@ -117,18 +99,15 @@
             </div>
 
 
-            <!-- Settings menu -->
             <div class="ui simple dropdown item desktop-only">
                 <i class="settings icon"></i> Settings <i class="dropdown icon"></i>
 
                 <div class="menu">
 
-                    <!-- View as submenu within Settings -->
                     <div class="ui dropdown item">
                         <i class="eye icon"></i> View <i class="dropdown icon"></i>
                         <div class="menu">
 
-                            <!-- Skin -->
                             <div class="ui dropdown item">
                                 <i class="images icon"></i> Skin <i class="dropdown icon"></i>
                                 <div class="menu">
@@ -145,7 +124,6 @@
                                 </div>
                             </div>
 
-                            <!-- Graphic size -->
                             <div class="ui dropdown item">
                                 <i class="expand arrows alternate icon"></i>
                                 Graphic size
@@ -169,12 +147,10 @@
                                 </div>
                             </div>
 
-                            <!-- Animation settings -->
                             <div class="ui dropdown item">
                                 <i class="running icon"></i> Animations <i class="dropdown icon"></i>
 
                                 <div class="menu">
-                                    <!-- Move animation delay -->
                                     <div class="ui dropdown item">
                                         <i class="dropdown icon"></i><i class="running icon"></i>
                                         Move animation delay
@@ -205,7 +181,6 @@
 
                                     <div class="ui divider"></div>
 
-                                    <!-- Selected object animation speed -->
                                     <div class="ui dropdown item">
                                         <i class="dropdown icon"></i><i class="stopwatch icon"></i>
                                         Selected object animation speed
@@ -233,7 +208,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Toggle animation on/off -->
                                     <div class="item">
                                         <i class="stopwatch icon"></i>
                                         <div class="ui checkbox">
@@ -244,7 +218,6 @@
                                 </div>
                             </div>
 
-                            <!-- Background color/image -->
                             <div class="ui dropdown item">
                                 <i class="palette icon"></i> Background <i class="dropdown icon"></i>
                                 <div class="menu">
@@ -257,7 +230,6 @@
                                         <input type="color" value="#EBEDEF" id="backgroundColor">
                                     </div>
 
-                                    <!-- Default color -->
                                     <div class="item" id="setDefaultBackgroundColor">
                                         <i class="tint icon"></i>
                                         Set default color
@@ -265,7 +237,6 @@
                                 </div>
                             </div>
 
-                            <!-- Snapshot list toggle -->
                             <div class="item">
                                 <i class="list ul icon"></i>
                                 <div class="ui checkbox">
@@ -274,7 +245,6 @@
                                 </div>
                             </div>
 
-                            <!-- Hide walls -->
                             <div class="item">
                                 <i class="eye slash outline icon"></i>
                                 <div class="ui checkbox">
@@ -283,7 +253,6 @@
                                 </div>
                             </div>
 
-                            <!-- Checkerboard pattern -->
                             <div class="item has-shortcut-hint">
                                 <i class="th icon"></i>
                                 <div class="ui checkbox">
@@ -293,7 +262,6 @@
                                 <span class="shortcut-hint">O</span>
                             </div>
 
-                            <!-- Ruler toggle -->
                             <div class="item has-shortcut-hint">
                                 <i class="ruler horizontal icon"></i>
                                 <div class="ui checkbox">
@@ -303,13 +271,8 @@
                                 <span class="shortcut-hint">L</span>
                             </div>
 
-                        </div> <!-- /View .menu -->
-                    </div> <!-- /View dropdown item -->
+                        </div> </div> <div class="divider"></div>
 
-
-                    <div class="divider"></div>
-
-                    <!-- Sound -->
                     <a class="item">
                         <i class="volume up icon"></i>
                         <div class="ui checkbox">
@@ -318,35 +281,30 @@
                         </div>
                     </a>
 
-                </div> <!-- /Settings .menu -->
-            </div> <!-- /Settings dropdown item -->
+                </div> </div> <div class="ui simple dropdown item desktop-only">
+            <i class="cloud upload icon"></i> Letslogic <i class="dropdown icon"></i>
 
-            <!-- Letslogic menu -->
-            <div class="ui simple dropdown item desktop-only">
-                <i class="cloud upload icon"></i> Letslogic <i class="dropdown icon"></i>
+            <div class="menu">
+                <div class="item" id="letslogicSetApiKey">
+                    <i class="key icon"></i> Set API key
+                </div>
 
-                <div class="menu">
-                    <div class="item" id="letslogicSetApiKey">
-                        <i class="key icon"></i> Set API key
-                    </div>
+                <div class="item" id="letslogicSubmitCurrent">
+                    <i class="upload icon"></i> Submit solutions of current puzzle
+                </div>
 
-                    <div class="item" id="letslogicSubmitCurrent">
-                        <i class="upload icon"></i> Submit solutions of current puzzle
-                    </div>
+                <div class="item" id="letslogicSubmitCollection">
+                    <i class="upload icon"></i> Submit solutions of all collection puzzles
+                </div>
 
-                    <div class="item" id="letslogicSubmitCollection">
-                        <i class="upload icon"></i> Submit solutions of all collection puzzles
-                    </div>
+                <div class="divider"></div>
 
-                    <div class="divider"></div>
-
-                    <div class="item" id="letslogicImportCollections">
-                        <i class="download icon"></i> Import collections from Letslogic…
-                    </div>
+                <div class="item" id="letslogicImportCollections">
+                    <i class="download icon"></i> Import collections from Letslogic…
                 </div>
             </div>
+        </div>
 
-            <!-- Database menu -->
             <div class="ui simple dropdown item desktop-only" id="databaseMenu">
                 <i class="database icon"></i> Saved Puzzles <i class="dropdown icon"></i>
                 <div class="menu">
@@ -369,7 +327,6 @@
                 </div>
             </div>
 
-            <!-- Info menu -->
             <div class="ui simple dropdown item desktop-only">
                 <i class="info icon"></i> Info
                 <div class="menu">
@@ -377,14 +334,12 @@
                         <i class="gamepad icon"></i> How to play
                     </div>
 
-                    <!-- About -->
                     <a class="item">
                         Sokoban for JavaScript ver. 0.76
                     </a>
                 </div>
             </div>
 
-            <!-- Modal: Letslogic API key -->
             <div class="ui modal" id="letslogicApiKeyModal">
                 <div class="header">
                     Letslogic API key
@@ -421,7 +376,6 @@
                 </div>
             </div>
 
-            <!-- Modal: Letslogic collections import -->
             <div class="ui modal" id="letslogicCollectionsModal">
                 <div class="header">
                     Import collections from Letslogic
@@ -447,7 +401,6 @@
 
                     <div id="letslogicCollectionsList" class="ui very relaxed divided selection list"
                          style="max-height: 50vh; overflow-y: auto">
-                        <!-- dynamically populated -->
                     </div>
                 </div>
 
@@ -462,11 +415,8 @@
         </div>
     </div>
 
-    <!-- Main app area -->
     <div id="appDiv">
-        <!-- Left side: collection + puzzle selectors, stats -->
         <div>
-            <!-- Collection & puzzle selectors -->
             <div class="ui cards selector">
                 <div class="card">
                     <div class="content">
@@ -481,6 +431,7 @@
                                     <option value="Cosmopoly.sok">Aymeric du Peloux 5 Cosmopoly</option>
                                     <option value="Cosmonotes.sok">Aymeric du Peloux Cosmonotes</option>
                                     <option value="Myrio Cosmos.sok">Aymeric du Peloux Myrio Cosmos</option>
+                                    <option value="cjcjc-space.sok">Cjcjc space</option>
                                     <option value="Disciple.sok">Jean-Pierre Martel Disciple</option>
                                     <option value="Grigr 2001.sok">GRIGoRusha 2001</option>
                                     <option value="Grigr 2002.sok">GRIGoRusha 2002</option>
@@ -504,7 +455,6 @@
                 </div>
             </div>
 
-            <!-- Stats: moves / pushes -->
             <div class="ui cards selector">
                 <div class="card">
                     <div class="content">
@@ -529,10 +479,8 @@
             </div>
         </div>
 
-        <!-- Right side: toolbar + canvas + status bar -->
         <div id="buttonsAndCanvasDIV">
 
-            <!-- Toolbar -->
             <div class="toolbarButtons" id="toolbarButtons">
                 <button class="ui icon button" title="Undo all" aria-label="Undo all moves" id="undoAllButton">
                     <i class="angle double left icon" aria-hidden="true"></i>
@@ -548,14 +496,11 @@
                 </button>
             </div>
 
-            <!-- Canvas + solved overlay -->
             <div id="canvasDIV">
 
                 <div id="boardWithRulers">
-                    <!-- top ruler (columns A, B, C, …) -->
                     <div id="boardRulerTop"></div>
 
-                    <!-- left ruler (rows 1, 2, 3, …) + Canvas -->
                     <div id="boardRulerLeftAndCanvas">
                         <div id="boardRulerLeft"></div>
                         <canvas id="canvas"></canvas>
@@ -571,7 +516,6 @@
                     </div>
                 </div>
 
-                <!-- Status bar below board -->
                 <label id="statusTextLabel" class="ui hidden message">
                     Status: <span id="statusText"></span>
                 </label>
@@ -581,7 +525,6 @@
     </div>
 
 
-    <!-- Modal: invalid board -->
     <div class="ui modal" id="showInvalidBoard">
         <div class="header">
             Invalid board found
@@ -599,7 +542,6 @@
         </div>
     </div>
 
-    <!-- Modal: How to play -->
     <div class="ui modal" id="showHowToPlay">
         <div class="header">
             <h1>How to play</h1>
@@ -631,7 +573,6 @@
         </div>
     </div>
 
-    <!-- Modal: Letslogic submission progress -->
     <div class="ui modal" id="letslogicProgressModal">
         <div class="header">
             Letslogic submission
@@ -654,7 +595,6 @@
         </div>
     </div>
 
-    <!-- Modal: paste from clipboard (fallback when direct access is not available) -->
     <div class="ui modal" id="pasteFromClipboardDialog">
         <div class="header">
             <h1>Please paste clipboard content</h1>
@@ -674,14 +614,12 @@
         </div>
     </div>
 
-    <!-- Sounds -->
     <audio id="moveSound"        preload><source src="./assets/sound/move.wav" /></audio>
     <audio id="pushSound"        preload><source src="./assets/sound/push.wav" /></audio>
     <audio id="pushToGoalSound"  preload><source src="./assets/sound/pushToGoal.wav" /></audio>
     <audio id="moveBlockedSound" preload><source src="./assets/sound/moveBlocked.wav" /></audio>
     <audio id="solvedSound"      preload><source src="./assets/sound/solved.wav" /></audio>
 
-    <!-- Hidden file input used to load a puzzle from disk -->
     <input
             type="file"
             id="puzzleFileInput"
@@ -689,7 +627,6 @@
             style="display: none"
     />
 
-    <!-- Context menu for snapshots/solutions -->
     <div id="snapshotContextMenu" class="ui vertical menu custom-context-menu">
         <div class="item" id="contextSetSnapshot">
             <i class="play icon"></i>
@@ -705,18 +642,7 @@
         </div>
     </div>
 
-    <!-- jQuery + Fomantic JS -->
-    <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fomantic-ui/dist/semantic.min.js"></script>
-
-    <!-- LocalForage -->
-    <script src="https://cdn.jsdelivr.net/npm/localforage/dist/localforage.min.js"></script>
-
-    <!-- Main app entry point -->
     <script type="module" src="sokoban.ts"></script>
 
-
-</div> <!-- end pusher -->
-
-</body>
+</div> </body>
 </html>

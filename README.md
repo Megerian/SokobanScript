@@ -19,6 +19,7 @@ Screenshot of the app:
 - Multiple graphical skins and configurable tile sizes
 - Keyboard and mouse control:
     - Keyboard: arrow keys or `WASD` / `IJKL`
+    - Quick Layout Toggles: `O` for Checkerboard pattern, `L` for Ruler coordinate labels
     - Mouse: click on free cells or boxes to move / push
 - Move and push counters
 - Snapshots and solutions sidebar (saved states)
@@ -35,7 +36,7 @@ Screenshot of the app:
    You can either:
     - Clone the repository:
       ```bash
-      git clone https://github.com/Megerian/SokobanScript.git
+      git clone [https://github.com/Megerian/SokobanScript.git](https://github.com/Megerian/SokobanScript.git)
       ```
     - Or [download the project as a ZIP file](https://github.com/Megerian/SokobanScript/archive/refs/heads/master.zip) and extract it.
 
@@ -76,6 +77,12 @@ Screenshot of the app:
    ```
    Open this URL in your browser to access the app.
 
+### Manual Type Checking
+To manually trigger a full project type-check at any time without building, run:
+```bash
+npm run typecheck
+```
+
 ---
 
 ## Building for Production
@@ -86,7 +93,11 @@ To build an optimized production bundle, run:
 npm run build
 ```
 
-This will create a production build in the `release/` directory:
+### What happens under the hood:
+1. **Type Checking:** The build script automatically runs `npm run typecheck` (`tsc --noEmit`) first. If there are any strict TypeScript or architecture compliance errors, the build will safely halt immediately to prevent deploying broken or non-compliant code.
+2. **Asset Copying & Bundling:** Static assets are moved, and Parcel compiles and minifies your TypeScript, CSS, and HTML into a highly optimized, production-ready state with relative subpaths (`--public-url ./`) for flexible directory hosting.
+
+This will create the production-ready build in the `release/` directory:
 
 ```text
 release/
@@ -96,7 +107,7 @@ release/
  └─ resources/
 ```
 
-You can upload the **contents of `release/`** to any static web hosting (e.g. SourceForge, GitHub Pages, …).
+You can upload the **contents of `release/`** to any static web hosting (e.g. SourceForge, GitHub Pages, nested subdirectories, …).
 
 ---
 

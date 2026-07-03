@@ -1,6 +1,3 @@
-
-// from https://github.com/blakeembrey/deque/blob/master/src/index.ts
-
 export class Deque<T> {
 
     private head = 0
@@ -32,19 +29,19 @@ export class Deque<T> {
         this.list = sorted
     }
 
-    /**  Adds the passed element at the end of the deque. */
+    /** Adds the passed element at the end of the deque. */
     add(element: T): void {
-       this.addLast(element)
+        this.addLast(element)
     }
 
-    /**  Adds the passed element at the end of the deque. */
+    /** Adds the passed element at the end of the deque. */
     addLast(element: T): void {
         this.list[this.tail] = element
         this.tail = (this.tail + 1) & this.mask
         if (this.head === this.tail) this._resize(this.list.length, this.list.length << 1)
     }
 
-    /**  Adds the passed element at the start of the deque. */
+    /** Adds the passed element at the start of the deque. */
     addFirst(element: T): this {
         this.head = (this.head - 1) & this.mask
         this.list[this.head] = element
@@ -52,10 +49,11 @@ export class Deque<T> {
         return this
     }
 
-    /** Removes all elements from the deque. */
+    /** Removes all elements from the deque and clears references to prevent memory leaks. */
     clear() {
         this.head = 0
         this.tail = 0
+        this.list.fill(undefined)
     }
 
     /** Adds all given elements to the end of the deque. */
@@ -64,7 +62,7 @@ export class Deque<T> {
         return this
     }
 
-    /** Adds all given elements to the start of the dequeue. */
+    /** Adds all given elements to the start of the deque. */
     addStartAll(elements: Iterable<T>) {
         for (const element of elements) this.addFirst(element)
         return this
@@ -82,25 +80,22 @@ export class Deque<T> {
         return list[pos] as T
     }
 
-    /** Returns the first element the deque. */
+    /** Returns the first element in the deque. */
     getFirst() {
         return this.get(0)
     }
 
-    /** Returns the last element the deque. */
+    /** Returns the last element in the deque. */
     getLast() {
-        if (this.isEmpty()) throw new RangeError('pop from an empty deque')
-
-        this.tail = (this.tail - 1) & this.mask
-        const element = this.list[this.tail] as T
-        return element
+        if (this.isEmpty()) throw new RangeError('deque is empty')
+        return this.list[(this.tail - 1) & this.mask] as T
     }
 
     /**
      * Returns the index of the passed element in the deque or
      * -1 in case the deque does not contain the element.
      * @param element element to be searched
-     * @param start  the element is searched starting from this index (defaults to 0)
+     * @param start the element is searched starting from this index (defaults to 0)
      */
     indexOf(element: T, start = 0) {
         const { head, list, size, mask } = this
@@ -126,6 +121,11 @@ export class Deque<T> {
 
     /** Inserts the given element at the given index in the deque. */
     insert(index: number, element: T) {
+        const size = this.size
+        if (index < 0 || index > size) {
+            throw new RangeError('deque index out of range')
+        }
+
         const pos = (this.head + index) & this.mask
         let cur = this.tail
 
@@ -144,17 +144,17 @@ export class Deque<T> {
         return this
     }
 
-    /**  Returns the number of elements in the deque.*/
+    /** Returns the number of elements in the deque. */
     get size() {
         return (this.tail - this.head) & this.mask
     }
 
-    /**  Returns whether the dequeue is empty. */
+    /** Returns whether the deque is empty. */
     isEmpty(): boolean {
         return this.size === 0
     }
 
-    /**  Returns whether the dequeue is not empty. */
+    /** Returns whether the deque is not empty. */
     isNotEmpty(): boolean {
         return !this.isEmpty()
     }
@@ -205,6 +205,7 @@ export class Deque<T> {
 
         // Decrease tail position by 1.
         this.tail = (this.tail - 1) & this.mask
+        this.list[this.tail] = undefined
 
         if (this.size < this.mask >>> 1) this._resize(this.size, this.list.length >>> 1)
 
@@ -229,29 +230,25 @@ export class Deque<T> {
 
     /** Rotates the elements of the deque n steps to the right. */
     rotate(n = 1) {
+        const size = this.size
+        if (size <= 1 || n === 0) return this
+
+        // Normalize steps to prevent performance degradation on large values of n
+        let steps = n % size
+        if (steps < 0) steps += size
+        if (steps === 0) return this
+
         const { head, tail } = this
 
-        if (n === 0 || head === tail) return this
+        this.head = (head - steps) & this.mask
+        this.tail = (tail - steps) & this.mask
 
-        this.head = (head - n) & this.mask
-        this.tail = (tail - n) & this.mask
+        for (let i = 1; i <= steps; i++) {
+            const a = (head - i) & this.mask
+            const b = (tail - i) & this.mask
 
-        if (n > 0) {
-            for (let i = 1; i <= n; i++) {
-                const a = (head - i) & this.mask
-                const b = (tail - i) & this.mask
-
-                this.list[a] = this.list[b]
-                this.list[b] = undefined
-            }
-        } else {
-            for (let i = 0; i > n; i--) {
-                const a = (tail - i) & this.mask
-                const b = (head - i) & this.mask
-
-                this.list[a] = this.list[b]
-                this.list[b] = undefined
-            }
+            this.list[a] = this.list[b]
+            this.list[b] = undefined
         }
 
         return this

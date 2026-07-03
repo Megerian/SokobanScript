@@ -22,33 +22,31 @@ export class StoragePersistenceService {
      * Tries to enable persistent storage for this origin.
      *
      * Returns:
-     *  - "already-persisted"  → origin was already persisted
-     *  - "granted"            → persistent storage has just been granted
-     *  - "denied"             → browser/user did not grant persistence
-     *  - "unsupported"        → API is not available in this browser
-     *  - "error"              → unexpected error (see console)
+     * - "already-persisted"  → origin was already persisted
+     * - "granted"            → persistent storage has just been granted
+     * - "denied"             → browser/user did not grant persistence
+     * - "unsupported"        → API is not available in this browser
+     * - "error"              → unexpected error (see console)
      */
     static async ensurePersistentStorage(): Promise<StoragePersistenceStatus> {
         try {
-            const nav: any = navigator
-
             // Feature detection
-            if (!nav.storage ||
-                typeof nav.storage.persisted !== "function" ||
-                typeof nav.storage.persist !== "function") {
+            if (!navigator.storage ||
+                typeof navigator.storage.persisted !== "function" ||
+                typeof navigator.storage.persist !== "function") {
                 console.info("[StoragePersistence] StorageManager API not supported.")
                 return "unsupported"
             }
 
             // Check if storage is already persisted for this origin
-            const isPersisted: boolean = await nav.storage.persisted()
+            const isPersisted: boolean = await navigator.storage.persisted()
             if (isPersisted) {
                 console.info("[StoragePersistence] Storage is already persisted.")
                 return "already-persisted"
             }
 
             // Request persistent storage
-            const granted: boolean = await nav.storage.persist()
+            const granted: boolean = await navigator.storage.persist()
             if (granted) {
                 console.info("[StoragePersistence] Persistent storage granted.")
                 return "granted"

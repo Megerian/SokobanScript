@@ -1,5 +1,4 @@
-import {GUI} from "../gui/GUI"
-
+import { GUI } from "../gui/GUI"
 import $ from 'jquery'
 
 export class Utilities {
@@ -17,8 +16,8 @@ export class Utilities {
     }
 
     /** Copies the given text string to the clipboard. */
-    static copyToClipboard(text: string) {
-        navigator.clipboard.writeText(text)
+    static copyToClipboard(text: string): Promise<void> {
+        return navigator.clipboard.writeText(text)
     }
 
     /**
@@ -33,51 +32,50 @@ export class Utilities {
     }
 
     /**
-     *  Returns the content of the clipboard or `null` in case the user rejected pasting the content.
-     *  New line character in the returned string is always just \n (not \r\n).
+     * Returns the content of the clipboard or `null` in case the user rejected pasting the content.
+     * New line character in the returned string is always just \n (not \r\n).
      */
     static async getStringFromClipboard(): Promise<string | null> {
-
-        let clipboardString : string | null = ""    // null in case the user cancels pasting to text area
-
         try {
-            await navigator.clipboard.readText().then(
-                (clipboardContent: string) => clipboardString = clipboardContent
-            )
-        } catch (e: unknown) {  // Fallback for Firefox Browser
-            await this.getClipboardFallBackSolution().then(
-                (clipboardContent: string | null) => clipboardString = clipboardContent
-            )
+            // Clean asynchronous fetch without mixed .then() chains
+            const clipboardContent = await navigator.clipboard.readText()
+            return clipboardContent.replace(/\r/g, "")
+        } catch (e: unknown) {
+            // Fallback for browsers with strict clipboard policies (e.g., Firefox)
+            const fallbackContent = await this.getClipboardFallBackSolution()
+            return fallbackContent !== null ? fallbackContent.replace(/\r/g, "") : null
         }
-
-        return clipboardString.replace(/\r/g, "")
     }
 
     /**
      * Fallback solution for Firefox browser to get content from clipboard.
      */
     private static getClipboardFallBackSolution(): Promise<string | null> {
-        return new Promise<string>((resolve, reject) => {
-
+        return new Promise<string | null>((resolve) => {
             const textArea = document.getElementById("pastedClipboardContent") as HTMLTextAreaElement
-            textArea.value = "";   // clear previous content
 
-            ($('#pasteFromClipboardDialog') as any).modal({    // show text area to paste the content
-                onShow: () => {
+            if (!textArea) {
+                console.error("Required fallback element 'pastedClipboardContent' not found in DOM.")
+                resolve(null)
+                return
+            }
+
+            textArea.value = "";
+
+            ($('#pasteFromClipboardDialog') as any).modal({
+                'onShow': () => {
                     GUI.isModalDialogShown = true
-                },    // tell the GUI listeners that we
-                onHidden: () => {
+                },
+                'onHidden': () => {
                     GUI.isModalDialogShown = false
-                }, // handle input events
-
-                onApprove: function () {
+                },
+                'onApprove': () => {
                     resolve(textArea.value)
                 },
-
-                onDeny: function () {
-                    reject("pasteDenied")
+                'onDeny': () => {
+                    resolve(null)
                 }
             }).modal('show')
-        }).catch(() => null)
+        })
     }
 }

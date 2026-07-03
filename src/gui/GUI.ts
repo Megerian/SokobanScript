@@ -8,26 +8,30 @@
 //  - Delegating ruler rendering/highlighting to BoardRulerView.
 //  - Coordinating snapshot sidebar and Letslogic integration.
 
+// Resolve the jQuery dollar sign from the global window instance.
+// This decouples GUI from direct build-time bundler imports and prevents scope conflicts.
+const $ = (window as any).$
+
 import { Board } from "../board/Board"
 import { NONE, SokobanApp } from "../app/SokobanApp"
-import { CommonSkinFormatBase, SKIN_NAME } from "../skins/commonSkinFormat/CommonSkinFormatBase"
+import { CommonSkinFormatBase, type SKIN_NAME } from "../skins/commonSkinFormat/CommonSkinFormatBase"
 import { Settings } from "../app/Settings"
 import { Snapshot } from "../Sokoban/domainObjects/Snapshot"
 import { PuzzleCollectionIO } from "../services/PuzzleCollectionIO"
 import { Collection } from "../Sokoban/domainObjects/Collection"
 import { Puzzle } from "../Sokoban/domainObjects/Puzzle"
-import { DIRECTION, Directions, DOWN } from "../Sokoban/Directions"
+import { type DIRECTION, Directions, DOWN } from "../Sokoban/Directions"
 import { NightShift3Skin } from "../skins/commonSkinFormat/NighShift3Skin"
 import { SkinLoader } from "../skins/SkinLoader"
 import { Solution } from "../Sokoban/domainObjects/Solution"
-import { BoardRenderer, SelectionState } from "./BoardRenderer"
-import { SnapshotSidebarCallbacks, SnapshotSidebarView } from "./SnapshotSidebarView"
-import { LetslogicProgressCallbacks } from "../services/letslogic/LetsLogicService"
+import { BoardRenderer, type SelectionState } from "./BoardRenderer"
+import { type SnapshotSidebarCallbacks, SnapshotSidebarView } from "./SnapshotSidebarView"
+import { type LetslogicProgressCallbacks } from "../services/letslogic/LetsLogicService"
 import { KeyboardController } from "./KeyboardController"
 import { BoardRulerView } from "./BoardRulerView"
 import { Action } from "./Actions"
-import { LetsLogicClient, LetsLogicLevel, LetsLogicLevelCollection } from "../services/letslogic/LetsLogicClient"
-import { DataStorage, StoredLetslogicCollectionDTO } from "../storage/DataStorage"
+import { LetsLogicClient, type LetsLogicLevel, type LetsLogicLevelCollection } from "../services/letslogic/LetsLogicClient"
+import { DataStorage, type StoredLetslogicCollectionDTO } from "../storage/DataStorage"
 
 export class GUI {
 
@@ -125,7 +129,7 @@ export class GUI {
     // ---------------------------------------------------------------------
 
     private readonly letslogicProgressModal       = document.getElementById("letslogicProgressModal")       as HTMLDivElement | null
-    private readonly letslogicProgressTitle       = document.getElementById("letslogicProgressTitle")       as HTMLDivElement | null
+    private readonly letslogicProgressTitle       = document.getElementById("letslogicProgressModal")?.querySelector(".header") as HTMLDivElement | null
     private readonly letslogicProgressStatus      = document.getElementById("letslogicProgressStatus")      as HTMLDivElement | null
     private readonly letslogicProgressLog         = document.getElementById("letslogicProgressLog")         as HTMLPreElement | null
     private readonly letslogicProgressCloseButton = document.getElementById("letslogicProgressCloseButton") as HTMLButtonElement | null
@@ -955,7 +959,7 @@ export class GUI {
         }
 
         if (!this.letslogicCollectionsModal) return
-        ;($(this.letslogicCollectionsModal) as any).modal({
+            ;($(this.letslogicCollectionsModal) as any).modal({
             onShow:   () => { GUI.isModalDialogShown = true },
             onHidden: () => { GUI.isModalDialogShown = false }
         }).modal("show")
@@ -1176,7 +1180,7 @@ export class GUI {
      * This helps to overwrite previously imported versions when re-importing the same collection id.
      */
     private removeImportedCollectionsByLetslogicId(id: number): void {
-        const pattern = new RegExp(`\(Letslogic #${id}\)(?: \[[0-9]+])?$`) // matches with optional [n] suffix
+        const pattern = new RegExp(`\\(Letslogic #${id}\\)(?: \\[[0-9]+])?$`) // matches with optional [n] suffix
 
         // Remove from in-memory map
         for (const name of Array.from(this.importedCollections.keys())) {
@@ -1356,8 +1360,7 @@ export class GUI {
     /** Sets the selected puzzle in the collection as the active puzzle. */
     private newPuzzleSelected(): void {
         const rawValue = this.puzzleSelector.value
-        // value is "n - title" so we parse the number before the dash
-        const puzzleNumber = parseInt(rawValue.split(" - ")[0] ?? "1", 10)
+        const puzzleNumber = parseInt(rawValue, 10)
 
         if (Number.isNaN(puzzleNumber) || puzzleNumber <= 0) {
             console.error("Invalid puzzleNumber from puzzleSelector.value:", rawValue)
@@ -1380,6 +1383,7 @@ export class GUI {
             return
         }
 
+        // value is the stringified puzzle number, so we parse it directly
         this.app.setPuzzleForPlaying(puzzles[index])
     }
 
@@ -1627,11 +1631,11 @@ export class GUI {
                 break
 
             case Action.toggleCheckerboardPattern:
-                {
-                    const newValue = !Settings.showCheckerboardPatternFlag
-                    Settings.showCheckerboardPatternFlag = newValue
-                    this.showCheckerboardPatternCheckbox.checked = newValue
-                }
+            {
+                const newValue = !Settings.showCheckerboardPatternFlag
+                Settings.showCheckerboardPatternFlag = newValue
+                this.showCheckerboardPatternCheckbox.checked = newValue
+            }
                 this.updateCanvas()
                 break
 
@@ -1697,9 +1701,8 @@ export class GUI {
         Settings.backgroundImageName = imageFileName
         document.body.setAttribute(
             "style",
-            `background-image: url(/resources/backgroundImages/${imageFileName});` +
+            `background-image: url(resources/backgroundImages/${imageFileName});` +
             "background-size: 100% 100%; overflow: hidden;"
         )
     }
 }
-

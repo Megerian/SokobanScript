@@ -41,8 +41,8 @@ export interface StoredSnapshotDTO {
  * Container for all snapshots/solutions belonging to a specific board.
  *
  * Storage format:
- *  - boardString: normalized layout of the board (so we can reconstruct/export later)
- *  - snapshots:  list of snapshot/solution DTOs
+ * - boardString: normalized layout of the board (so we can reconstruct/export later)
+ * - snapshots:  list of snapshot/solution DTOs
  *
  * All boards that produce the same normalized board string share one entry.
  */
@@ -67,9 +67,9 @@ interface StoredSubmittedSolutionDTO {
  * DataStorage is a small persistence layer on top of localforage.
  *
  * Responsibilities:
- *  - store/load/delete snapshots and solutions per board
- *  - export all stored boards with their snapshots/solutions
- *  - track which solutions have already been submitted to Letslogic
+ * - store/load/delete snapshots and solutions per board
+ * - export all stored boards with their snapshots/solutions
+ * - track which solutions have already been submitted to Letslogic
  *
  * Board identity
  * --------------
@@ -77,8 +77,8 @@ interface StoredSubmittedSolutionDTO {
  * (getBoardAsString() with trailing whitespace removed).
  *
  * The normalized board string is:
- *  - used as part of the storage key (URL-encoded)
- *  - stored again inside the value (boardString) for export and sanity.
+ * - used as part of the storage key (URL-encoded)
+ * - stored again inside the value (boardString) for export and sanity.
  */
 export class DataStorage {
 
@@ -98,8 +98,8 @@ export class DataStorage {
 
     /**
      * Returns the normalized board string for a board:
-     *  - uses Board.getBoardAsString()
-     *  - removes trailing whitespace, but keeps internal spaces and newlines
+     * - uses Board.getBoardAsString()
+     * - removes trailing whitespace, but keeps internal spaces and newlines
      *
      * This must be stable: equal boards must produce equal normalized strings.
      */
@@ -117,9 +117,9 @@ export class DataStorage {
      * debugging-friendly but safe for localforage/IndexedDB.
      *
      * Example:
-     *   "####\n#.@#\n####"
+     * "####\n#.@#\n####"
      * becomes
-     *   snapshots:%23%23%23%23%0A%23.%40%23%0A%23%23%23%23
+     * snapshots:%23%23%23%23%0A%23.%40%23%0A%23%23%23%23
      */
     private static getSnapshotStorageKey(board: Board): string {
         const normalizedBoard = this.getNormalizedBoardString(board)
@@ -150,7 +150,7 @@ export class DataStorage {
             hash = ((hash << 5) - hash) + chr
             hash |= 0 // Convert to 32-bit integer
         }
-        return hash.toString(16)
+        return (hash >>> 0).toString(16)
     }
 
     // -------------------------------------------------------------------------
@@ -161,11 +161,11 @@ export class DataStorage {
      * Loads the StoredBoardSnapshotsDTO for the given board.
      *
      * Behavior:
-     *  - If nothing is stored yet, returns an empty DTO with the current boardString.
-     *  - If the stored value is an array<StoredSnapshotDTO>, wraps it into a DTO
-     *    (legacy format support).
-     *  - If the stored value is already a StoredBoardSnapshotsDTO, returns it
-     *    with defensive defaults.
+     * - If nothing is stored yet, returns an empty DTO with the current boardString.
+     * - If the stored value is an array<StoredSnapshotDTO>, wraps it into a DTO
+     * (legacy format support).
+     * - If the stored value is already a StoredBoardSnapshotsDTO, returns it
+     * with defensive defaults.
      */
     private static async loadBoardSnapshotsEntry(board: Board): Promise<StoredBoardSnapshotsDTO> {
         const key = this.getSnapshotStorageKey(board)
@@ -278,8 +278,8 @@ export class DataStorage {
      * If an entry with the same LURD and type already exists, it is not added again.
      *
      * ➜ Perfect for auto-save:
-     *    duplicate solutions are silently ignored,
-     *    there is no UI message here.
+     * duplicate solutions are silently ignored,
+     * there is no UI message here.
      */
     static async storeSnapshot(board: Board, snapshot: Snapshot | Solution): Promise<void> {
         const entry = await this.loadBoardSnapshotsEntry(board)
@@ -464,9 +464,14 @@ export class DataStorage {
     /** Loads all cached Letslogic collections (by iterating index). */
     static async loadAllLetslogicCollections(): Promise<StoredLetslogicCollectionDTO[]> {
         const index = (await localforage.getItem<number[]>(this.LETSLOGIC_COLLECTION_INDEX_KEY)) ?? []
+
+        const promises = index.map(id =>
+            localforage.getItem<StoredLetslogicCollectionDTO>(this.letslogicCollectionKey(id))
+        )
+        const dynamicDTOs = await Promise.all(promises)
+
         const results: StoredLetslogicCollectionDTO[] = []
-        for (const id of index) {
-            const dto = await localforage.getItem<StoredLetslogicCollectionDTO>(this.letslogicCollectionKey(id))
+        for (const dto of dynamicDTOs) {
             if (dto && typeof dto.title === "string" && Array.isArray(dto.puzzles)) {
                 results.push(dto)
             }

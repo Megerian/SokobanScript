@@ -12,6 +12,7 @@ import {PlayerDistances} from "../distanceCalculations/PlayerDistances"
  * is calculating with the constraint that no other box may be pushed in the meantime.
  * Example:
  *
+ * ```
  * #########
  * #---#---#
  * #@$--*-.# <- two boxes. One on a goal, the other to be pushed to the goal.
@@ -20,6 +21,7 @@ import {PlayerDistances} from "../distanceCalculations/PlayerDistances"
  * #-------#
  * #-------#
  * #########
+ * ```
  *
  * There are two boxes in this puzzle.
  * When the user selects the box next to the player to be pushed to the goal on the
@@ -29,6 +31,7 @@ import {PlayerDistances} from "../distanceCalculations/PlayerDistances"
  * However, this program wouldn't use this path because this requires to push more than one box.
  * Hence, this program would use the path marked with 'o'.
  *
+ * ```
  * #########
  * #---#---#
  * #@$--*-.# <- two boxes. One box on a goal, the other to be pushed to the goal.
@@ -37,20 +40,21 @@ import {PlayerDistances} from "../distanceCalculations/PlayerDistances"
  * #-oooooo#
  * #-------#
  * #########
+ * ```
  *
  *
  * Two optimization strategies are supported:
- *  - moves/pushes:  minimize moves first, then pushes
- *  - pushes/moves:  minimize pushes first, then moves
+ * - moves/pushes:  minimize moves first, then pushes
+ * - pushes/moves:  minimize pushes first, then moves
  *
  * Important notes:
- *  - The algorithm explores states of the form (boxPosition, playerPosition).
- *  - It temporarily assumes that only the currently selected box exists
- *    at a certain position when computing player distances, but it restores
- *    the board state after each step; the board is not modified permanently
- *    by any public method of this class.
- *  - The instance is stateful and not re-entrant – do not call path finding
- *    methods in parallel on the same BoxPathFinding instance.
+ * - The algorithm explores states of the form (boxPosition, playerPosition).
+ * - It temporarily assumes that only the currently selected box exists
+ * at a certain position when computing player distances, but it restores
+ * the board state after each step; the board is not modified permanently
+ * by any public method of this class.
+ * - The instance is stateful and not re-entrant – do not call path finding
+ * methods in parallel on the same BoxPathFinding instance.
  */
 export class BoxPathFinding {
 
@@ -73,7 +77,7 @@ export class BoxPathFinding {
      * For each key we only keep the best-known state according to the
      * active comparator.
      */
-    private settledStates = new Map<string, State>()
+    private settledStates = new Map<number, State>()
 
     /** Currently used comparator (moves/pushes or pushes/moves). */
     private comparator: (a: State, b: State) => number
@@ -124,9 +128,9 @@ export class BoxPathFinding {
      * optimizing first for moves, then for pushes.
      *
      * The returned path:
-     *  - does NOT include the startPosition
-     *  - is an array of box positions the box will occupy, in order
-     *  - returns null if no path exists
+     * - does NOT include the startPosition
+     * - is an array of box positions the box will occupy, in order
+     * - returns null if no path exists
      */
     getBoxPathMovesPushes(startPosition: number, targetPosition: number): number[] | null {
         this.prepareSearchForMovesPushes()
@@ -138,13 +142,13 @@ export class BoxPathFinding {
      * optimizing first for pushes, then for moves.
      *
      * The returned path:
-     *  - does NOT include the startPosition
-     *  - is an array of box positions the box will occupy, in order
-     *  - returns null if no path exists
+     * - does NOT include the startPosition
+     * - is an array of box positions the box will occupy, in order
+     * - returns null if no path exists
      *
      * Example:
-     *   getBoxPathPushesMoves(1, 3)
-     *   => [2, 3]
+     * getBoxPathPushesMoves(1, 3)
+     * => [2, 3]
      */
     getBoxPathPushesMoves(startPosition: number, targetPosition: number): number[] | null {
         this.prepareSearchForPushesMoves()
@@ -157,33 +161,23 @@ export class BoxPathFinding {
      * is pushed and other boxes are not moved.
      *
      * Implementation note:
-     *  - We run a full search with an “invalid” target index (0). Since no
-     *    state will ever have boxPosition === 0 (for a normal board), the
-     *    search exhausts the entire reachable state space.
-     *  - We then inspect the settled state map to see which box positions
-     *    have at least one valid (boxPosition, playerPosition) state.
+     * - We run a full search with an “invalid” target index (0). Since no
+     * state will ever have boxPosition === 0 (for a normal board), the
+     * search exhausts the entire reachable state space.
+     * - We then inspect the settled state map to see which box positions
+     * have at least one valid (boxPosition, playerPosition) state.
      */
     getReachableBoxPositions(boxPosition: number): number[] {
 
         // Run a full search; result path is not used.
         this.getBoxPathPushesMoves(boxPosition, 0)
 
-        const reachablePositions: number[] = []
+        const reachableSet = new Set<number>()
+        this.settledStates.forEach(state => {
+            reachableSet.add(state.boxPosition)
+        })
 
-        for (const position of this.board.activePositions) {
-            for (const direction of Directions.DIRECTIONS) {
-                // We must check for every possible player neighbor position.
-                const playerNeighbor = this.board.getNeighborPosition(position, direction)
-                const stateKey = position + "|" + playerNeighbor
-
-                if (this.settledStates.get(stateKey) != null) {
-                    reachablePositions.push(position)
-                    break
-                }
-            }
-        }
-
-        return reachablePositions
+        return Array.from(reachableSet)
     }
 
     // -------------------------------------------------------------------------
@@ -269,12 +263,12 @@ export class BoxPathFinding {
 
     /** Returns the stored state for the given state key (if any). */
     private getStoredState(state: State): State | undefined {
-        return this.settledStates.get(state.keyValue())
+        return this.settledStates.get((state.boxPosition << 16) | state.playerPosition)
     }
 
     /** Stores or replaces the given state in the settledStates map. */
     private storeState(state: State): void {
-        this.settledStates.set(state.keyValue(), state)
+        this.settledStates.set((state.boxPosition << 16) | state.playerPosition, state)
     }
 
     /**
@@ -335,8 +329,8 @@ export class BoxPathFinding {
 
     /**
      * Checks whether a push is possible:
-     *  - the player must be able to reach `playerPositionForPush`
-     *  - the new box position must be accessible for a box.
+     * - the player must be able to reach `playerPositionForPush`
+     * - the new box position must be accessible for a box.
      */
     private isPushPossible(playerPositionForPush: number, newBoxPosition: number): boolean {
         return this.playerDistances.isReachable(playerPositionForPush)
@@ -348,8 +342,8 @@ export class BoxPathFinding {
      * state back to the start state.
      *
      * The returned array:
-     *  - is in forward order (start -> target)
-     *  - does NOT include the starting box position
+     * - is in forward order (start -> target)
+     * - does NOT include the starting box position
      */
     private reconstructBoxPathFrom(currentState: State): number[] {
         const boxPath = new Deque<number>()
@@ -382,12 +376,4 @@ class State {
         public pushCount: number,
         public previousState: State | null
     ) {}
-
-    /**
-     * Returns a unique key for this state based on box and player position.
-     * This is used as the key in the settledStates map.
-     */
-    keyValue(): string {
-        return this.boxPosition + "|" + this.playerPosition
-    }
 }

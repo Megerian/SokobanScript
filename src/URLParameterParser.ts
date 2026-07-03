@@ -13,10 +13,10 @@ export class URLParameterParser {
      * Tries to parse a `Puzzle` from the current URL.
      *
      * Supported parameters (checked in this order):
-     *   ?id=4711
-     *   ?level=...  or  ?puzzle=...        (URL-encoded board string)
-     *   ?base64=...                        (Base64URL-encoded board string)
-     *   ?json=...                          (Base64URL-encoded JSON with `Board: string[]`)
+     * ?id=4711
+     * ?level=...  or  ?puzzle=...        (URL-encoded board string)
+     * ?base64=...                        (Base64URL-encoded board string)
+     * ?json=...                          (Base64URL-encoded JSON with `Board: string[]`)
      */
     static async parsePuzzleFromURLParameter(): Promise<Puzzle | null> {
         // 1. Try to load by ID
@@ -42,7 +42,7 @@ export class URLParameterParser {
 
     /**
      * If the URL parameter "id" is present, tries to load the puzzle
-     * collection from the server and returns the last puzzle in it.
+     * collection from the server and returns the first puzzle in it.
      *
      * To keep the API consistent, this method is asynchronous.
      */
@@ -61,8 +61,8 @@ export class URLParameterParser {
                 return null
             }
 
-            // Use the last puzzle from the collection
-            return collection.puzzles[collection.puzzles.length - 1]
+            // Fallback default to the first puzzle of the collection
+            return collection.puzzles[0]
         } catch (error) {
             console.error("Failed to load puzzle collection for id:", puzzleId, error)
             return null
@@ -74,10 +74,10 @@ export class URLParameterParser {
      * as a URL-encoded string.
      *
      * Example:
-     *   ?level=#####%0A#@$.#%0A#####
+     * ?level=#####%0A#@$.#%0A#####
      */
     private static getUrlEncodedPuzzleFromURL(): Puzzle | null {
-        let puzzleBoard =
+        const puzzleBoard =
             Utilities.getURLParameter("level") ??
             Utilities.getURLParameter("puzzle")
 
@@ -85,11 +85,12 @@ export class URLParameterParser {
             return null
         }
 
-        const boardString = decodeURI(puzzleBoard)
+        // FIX: Use decodeURIComponent instead of decodeURI to correctly parse
+        // the '+' character (Player on Goal) encoded as '%2B'.
+        const boardString = decodeURIComponent(puzzleBoard)
         const board = Board.createFromString(boardString)
 
         if (typeof board === "string") {
-            // `board` is an error message string
             console.error("Invalid board string from URL parameter 'level'/'puzzle':", board)
             return null
         }
@@ -100,8 +101,8 @@ export class URLParameterParser {
     /**
      * The puzzle (board) can be passed as:
      *
-     *   - URL parameter "base64" as a Base64URL-encoded plain board string, or
-     *   - URL parameter "json" as Base64URL-encoded JSON with a `Board: string[]` field.
+     * - URL parameter "base64" as a Base64URL-encoded plain board string, or
+     * - URL parameter "json" as Base64URL-encoded JSON with a `Board: string[]` field.
      *
      * Examples:
      *
@@ -115,56 +116,58 @@ export class URLParameterParser {
      *   })
      */
     private static getBase64OrJsonEncodedPuzzleFromURL(): Puzzle | null {
-        // First prefer "base64", then "json"
-        const encoded =
-            Utilities.getURLParameter("base64") ??
-            Utilities.getURLParameter("json")
+        const base64Param = Utilities.getURLParameter("base64")
+        const jsonParam = Utilities.getURLParameter("json")
 
-        if (!encoded) {
+        if (!base64Param && !jsonParam) {
             return null
         }
 
-        // 1. Decode Base64URL → string
+        const activeParam = base64Param ?? jsonParam
+        if (!activeParam) return null
+
         let decoded: string
         try {
-            decoded = Base64URL.decode(encoded)
+            decoded = Base64URL.decode(activeParam)
         } catch (error) {
             console.error("Failed to decode Base64URL puzzle string from URL:", error)
             return null
         }
 
-        let boardString: string = decoded
-        let meta: any | null = null
+        let boardString = decoded
+        let meta: any = null
 
-        // 2. Try to parse decoded string as JSON (for ?json=...)
-        try {
-            const json = JSON.parse(decoded)
-            if (json && Array.isArray(json.Board)) {
-                meta = json
-                boardString = json.Board.join("\n")
+        // Explicitly handle JSON structures if the json parameter was provided
+        if (jsonParam && !base64Param) {
+            try {
+                const json = JSON.parse(decoded)
+                if (json && Array.isArray(json.Board)) {
+                    meta = json
+                    boardString = json.Board.join("\n")
+                } else {
+                    console.error("Invalid JSON structure: missing 'Board' array property.")
+                    return null
+                }
+            } catch (error) {
+                console.error("Failed to parse JSON puzzle metadata from URL:", error)
+                return null
             }
-        } catch {
-            // Not JSON: treat `decoded` as plain board string (for ?base64=...)
         }
 
-        // 3. Create Board from boardString
         const board = Board.createFromString(boardString)
         if (typeof board === "string") {
             console.error("Invalid board string from Base64/JSON URL parameter:", board)
             return null
         }
 
-        // 4. Wrap into Puzzle
         const puzzle = new Puzzle(board)
 
-        // 5. Optionally set title from JSON metadata
         if (meta) {
             if (typeof meta["Level Title"] === "string") {
                 puzzle.title = meta["Level Title"]
             } else if (typeof meta["Level Set"] === "string") {
                 puzzle.title = meta["Level Set"]
             }
-            // You could optionally use `meta["Level No."]` as well.
         }
 
         return puzzle

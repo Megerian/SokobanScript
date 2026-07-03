@@ -51,7 +51,7 @@ export class LetsLogicClient {
      * Base URL of the Letslogic API.
      *
      * Example final URL for a level with ID 123:
-     *   https://letslogic.com/api/v1/level/123
+     * https://letslogic.com/api/v1/level/123
      */
     static readonly API_BASE_URL = "https://letslogic.com/api/v1/level"
 
@@ -63,8 +63,8 @@ export class LetsLogicClient {
      * Debug flag.
      *
      * You can enable it:
-     *   - in code:   LetsLogicClient.DEBUG = true
-     *   - in browser console:  window.LETSLOGIC_DEBUG = true
+     * - in code:   LetsLogicClient.DEBUG = true
+     * - in browser console:  window.LETSLOGIC_DEBUG = true
      */
     static DEBUG: boolean = false
 
@@ -87,7 +87,7 @@ export class LetsLogicClient {
     }
 
     /**
-     * Fetches all Letslogic collections available to the API key.
+     * Fleches all Letslogic collections available to the API key.
      * POST form field: key
      */
     async getCollections(): Promise<LetsLogicLevelCollection[]> {
@@ -213,22 +213,18 @@ export class LetsLogicClient {
     /** Converts Letslogic numeric map to Sokoban characters and optionally adds newlines */
     private static convertMapString(map: string, width: number, height: number, addNewlines: boolean): string {
         // 0 -> space, 1 -> wall '#', 2 -> player '@', 3 -> box '$', 4 -> goal '.', 5 -> box on goal '*', 6 -> player on goal '+', 7 -> void '-'
-        let converted = map
-            .replace(/0/g, " ")
-            .replace(/1/g, "#")
-            .replace(/2/g, "@")
-            .replace(/3/g, "$")
-            .replace(/4/g, ".")
-            .replace(/5/g, "*")
-            .replace(/6/g, "+")
-            .replace(/7/g, "-")
+        const chars = [" ", "#", "@", "$", ".", "*", "+", "-"]
+        const len = map.length
+        const insertNewlines = addNewlines && width > 0 && height > 0 && len === width * height
 
-        if (addNewlines && width > 0 && height > 0 && converted.length === width * height) {
-            const rows: string[] = []
-            for (let i = 0; i < converted.length; i += width) {
-                rows.push(converted.substring(i, i + width))
+        let converted = ""
+        for (let i = 0; i < len; i++) {
+            const code = map.charCodeAt(i) - 48
+            converted += (code >= 0 && code <= 7) ? chars[code] : map[i]
+
+            if (insertNewlines && (i + 1) % width === 0) {
+                converted += "\n"
             }
-            converted = rows.join("\n") + "\n"
         }
         return converted
     }
