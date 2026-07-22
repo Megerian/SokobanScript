@@ -4,7 +4,7 @@ import { NONE } from "../../app/SokobanApp"
 
 /** Supported skins */
 export type SKIN_NAME = "AntiqueDesk" | "AntiqueDesk3" | "NightShift3" | "HeavyMetal3" |
-    "SokoGems" | "KSokoban" | "KSokoban2"
+    "SokoGems" | "SimpleGreatBadger" | "KSokoban" | "KSokoban2"
 
 export abstract class CommonSkinFormatBase {
 
