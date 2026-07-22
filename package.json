@@ -5,7 +5,7 @@
   "description": "Play Sokoban online",
   "homepage": "https://sourceforge.net/projects/sokoban-solver-statistics/",
   "dependencies": {
-    "fomantic-ui": "^2.10.0-beta.103",
+    "fomantic-ui": "^2.10.0-beta.108",
     "jquery": "^3.7.1",
     "localforage": "^1.10.0"
   },
@@ -13,10 +13,10 @@
     "@parcel/packager-raw-url": "^2.16.4",
     "@parcel/transformer-webmanifest": "^2.16.4",
     "@types/jquery": "^3.5.34",
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "ncp": "^2.0.0",
     "parcel": "^2.16.4",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
