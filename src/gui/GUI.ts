@@ -1385,6 +1385,9 @@ export class GUI {
 
         // value is the stringified puzzle number, so we parse it directly
         this.app.setPuzzleForPlaying(puzzles[index])
+
+        this.puzzleSelector.blur()
+        this.canvas.focus()
     }
 
     /** Selects the next puzzle in the current collection, if any. */
