@@ -8,6 +8,7 @@ import { KSokobanSkin } from "./commonSkinFormat/KSokobanSkin";
 import { KSokoban2Skin } from "./commonSkinFormat/KSokoban2Skin";
 import { KenBriSkin } from "./commonSkinFormat/KenBriSkin";
 import {SimpleGreatBadgerSkin} from "./commonSkinFormat/SimpleGreatBadgerSkin";
+import {YoshiSanSkin} from "./commonSkinFormat/YoshiSanSkin";
 
 export class SkinLoader {
 
@@ -34,6 +35,9 @@ export class SkinLoader {
                 break
 
             case "SimpleGreatBadger": skin = new SimpleGreatBadgerSkin()
+                break
+
+            case "Yoshi-san": skin = new YoshiSanSkin()
                 break
 
             case "SokoGems": skin = new SokoGemsSkin()

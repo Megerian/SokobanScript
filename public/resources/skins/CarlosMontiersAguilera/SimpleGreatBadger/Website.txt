@@ -1,1 +1,1 @@
-https://github.com/carlos-montiers/sokoban-skin-simple-great-badger
+https://github.com/sokoban-resources/skin-simple-great-badger
